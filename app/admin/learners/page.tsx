@@ -31,6 +31,13 @@ export default function ManageLearners() {
   const [filterIssues, setFilterIssues] = useState('all')
   const [archiveSearch, setArchiveSearch] = useState('')
 
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState<any>(null)
+  const [deleteStep, setDeleteStep] = useState<1 | 2 | 3>(1)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+
   const [fullName, setFullName] = useState('')
   const [studentId, setStudentId] = useState('')
   const [islamicClassId, setIslamicClassId] = useState('')
@@ -75,6 +82,7 @@ export default function ManageLearners() {
     const enriched = (learnerData || []).map((l: any) => ({
       ...l,
       attPct: attMap[l.id]?.total > 0 ? Math.round((attMap[l.id].present / attMap[l.id].total) * 100) : null,
+      attCount: attMap[l.id]?.total || 0,
       docsSubmitted: docsMap[l.id] || 0,
       totalDocs,
       missingFields: [l.date_of_birth, l.phone, l.address, l.home_language].filter(v => !v).length,
@@ -88,8 +96,7 @@ export default function ManageLearners() {
 
   async function addLearner() {
     if (!fullName.trim()) return
-    setAdding(true)
-    setError('')
+    setAdding(true); setError('')
     const { data: newLearner, error: lerr } = await supabase.from('learners').insert({
       full_name: fullName.trim(), student_id: studentId.trim() || null,
       date_of_birth: dob || null, phone: phone.trim() || null, address: address.trim() || null,
@@ -104,14 +111,66 @@ export default function ManageLearners() {
     if (inserts.length > 0) await supabase.from('learner_classes').insert(inserts)
     setFullName(''); setStudentId(''); setDob(''); setPhone(''); setAddress('')
     setHomeLanguage(''); setPreviousSchool(''); setMedicalNotes(''); setIslamicClassId(''); setSecularClassId('')
-    setShowForm(false)
-    loadData()
-    setAdding(false)
+    setShowForm(false); loadData(); setAdding(false)
   }
 
   async function toggleActive(id: string, current: boolean) {
     await supabase.from('learners').update({ is_active: !current }).eq('id', id)
     loadData()
+  }
+
+  function openDeleteModal(learner: any) {
+    setDeleteTarget(learner)
+    setDeleteStep(1)
+    setDeleteConfirmText('')
+    setDeleteError('')
+  }
+
+  function closeDeleteModal() {
+    setDeleteTarget(null)
+    setDeleteStep(1)
+    setDeleteConfirmText('')
+    setDeleteError('')
+  }
+
+  async function performDelete() {
+    if (!deleteTarget) return
+    if (deleteConfirmText !== deleteTarget.full_name) {
+      setDeleteError('Name does not match. Please type the exact name.')
+      return
+    }
+    setDeleting(true); setDeleteError('')
+    try {
+      const id = deleteTarget.id
+
+      // Must manually delete NO ACTION tables first (in safe order)
+      // homework_submissions before homework_assignments
+      const { error: e1 } = await supabase.from('homework_submissions').delete().eq('learner_id', id)
+      if (e1) throw e1
+      const { error: e2 } = await supabase.from('homework_assignments').delete().eq('learner_id', id)
+      if (e2) throw e2
+      const { error: e3 } = await supabase.from('activity_attendance').delete().eq('learner_id', id)
+      if (e3) throw e3
+      const { error: e4 } = await supabase.from('attendance').delete().eq('learner_id', id)
+      if (e4) throw e4
+      const { error: e5 } = await supabase.from('notes').delete().eq('learner_id', id)
+      if (e5) throw e5
+
+      // CASCADE tables will auto-delete when learner is deleted:
+      // cleaning_assignments, learner_classes, learner_documents,
+      // learner_duas, learner_family, learner_islamic_progress,
+      // learner_surahs, learner_topic_progress
+
+      const { error: delErr } = await supabase.from('learners').delete().eq('id', id)
+      if (delErr) throw delErr
+
+      closeDeleteModal()
+      loadData()
+    } catch (err: any) {
+      setDeleteError(err.message || 'Delete failed. Check console for details.')
+      console.error('Delete error:', err)
+    }
+    setDeleting(false)
   }
 
   const islamicClasses = classes.filter(c => c.class_type === 'islamic')
@@ -120,13 +179,10 @@ export default function ManageLearners() {
   const filtered = learners.filter(l => {
     if (!l.is_active) return false
     if (search && !l.full_name.toLowerCase().includes(search.toLowerCase())) return false
-    if (filterClass !== 'all') {
-      if (!l.learner_classes?.some((lc: any) => lc.class_id === filterClass)) return false
-    }
-    if (filterIssues === 'atrisk') { if (l.attPct === null || l.attPct >= 70) return false }
-    if (filterIssues === 'missingdocs') { if (l.docsSubmitted >= l.totalDocs && l.totalDocs > 0) return false }
-    if (filterIssues === 'incomplete') { if (l.missingFields === 0) return false }
-    if (filterIssues === 'issues') { if (l.attPct !== null && l.attPct >= 70 && l.docsSubmitted >= l.totalDocs && l.missingFields === 0) return false }
+    if (filterClass !== 'all' && !l.learner_classes?.some((lc: any) => lc.class_id === filterClass)) return false
+    if (filterIssues === 'atrisk' && (l.attPct === null || l.attPct >= 70)) return false
+    if (filterIssues === 'missingdocs' && (l.docsSubmitted >= l.totalDocs && l.totalDocs > 0)) return false
+    if (filterIssues === 'incomplete' && l.missingFields === 0) return false
     return true
   })
 
@@ -144,19 +200,16 @@ export default function ManageLearners() {
     <main style={{ minHeight: '100vh', background: '#F8F7F4', fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap');
-        * { box-sizing: border-box; }
-        .topbar { background:#fff; border-bottom:1px solid #EFEFED; padding:0 32px; height:56px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10; }
+        *, *::before, *::after { box-sizing: border-box; }
+        .topbar { background:#fff; border-bottom:1px solid #EFEFED; padding:0 32px; height:56px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:30; }
         .topbar-left { display:flex; align-items:center; gap:12px; }
         .back-btn { display:flex; align-items:center; gap:6px; font-size:13px; color:#999; background:none; border:none; cursor:pointer; padding:6px 10px; border-radius:8px; transition:all 0.15s; font-family:'DM Sans',sans-serif; }
         .back-btn:hover { background:#F5F5F3; color:#333; }
         .page-title { font-size:15px; font-weight:600; color:#1A1A1A; }
-        .add-btn { display:flex; align-items:center; gap:6px; background:#1A1A1A; color:white; border:none; border-radius:9px; padding:8px 16px; font-size:13px; font-weight:500; cursor:pointer; transition:all 0.2s; font-family:'DM Sans',sans-serif; }
+        .add-btn { display:flex; align-items:center; gap:6px; background:#1A1A1A; color:white; border:none; border-radius:9px; padding:8px 16px; font-size:13px; font-weight:500; cursor:pointer; font-family:'DM Sans',sans-serif; }
         .add-btn:hover { background:#333; }
         .add-btn.cancel { background:#F5F5F3; color:#666; }
-        .add-btn.cancel:hover { background:#EBEBEB; }
         .wrap { max-width:1060px; margin:0 auto; padding:24px 32px; }
-
-        /* ── Tabs ── */
         .list-tabs { display:flex; gap:2px; margin-bottom:20px; background:#fff; border:1px solid #EFEFED; border-radius:12px; padding:4px; width:fit-content; }
         .list-tab { display:flex; align-items:center; gap:7px; padding:7px 16px; border:none; border-radius:9px; font-size:13px; font-weight:500; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.15s; color:#888; background:none; }
         .list-tab:hover { color:#333; background:#F5F5F3; }
@@ -164,16 +217,12 @@ export default function ManageLearners() {
         .list-tab .tab-count { font-size:11px; padding:1px 6px; border-radius:6px; font-weight:600; }
         .list-tab.active .tab-count { background:rgba(255,255,255,0.15); color:rgba(255,255,255,0.8); }
         .list-tab:not(.active) .tab-count { background:#F0F0EE; color:#AAA; }
-
-        /* ── Report chips ── */
         .report-row { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
         .report-chip { display:flex; align-items:center; gap:6px; padding:7px 12px; border-radius:9px; border:1px solid #EFEFED; background:#fff; font-size:12px; font-weight:500; cursor:pointer; transition:all 0.15s; }
-        .report-chip:hover { border-color:#DDD; background:#FAFAF8; }
+        .report-chip:hover { border-color:#DDD; }
         .report-chip.selected { border-color:#1A1A1A; background:#1A1A1A; color:#fff; }
         .report-chip .rc-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
         .report-chip .rc-n { font-weight:600; }
-
-        /* ── Filters ── */
         .filters { display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
         .search-wrap { flex:1; min-width:200px; position:relative; }
         .search-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#AAA; pointer-events:none; display:flex; }
@@ -181,14 +230,11 @@ export default function ManageLearners() {
         .search-input:focus { border-color:#1A1A1A; }
         .search-input::placeholder { color:#CCC; }
         .filter-select { height:38px; border:1px solid #EFEFED; border-radius:9px; padding:0 12px; font-size:13px; font-family:'DM Sans',sans-serif; background:#fff; color:#555; outline:none; cursor:pointer; }
-        .filter-select:focus { border-color:#1A1A1A; }
         .results-info { font-size:12px; color:#AAA; margin-bottom:10px; }
-
-        /* ── Table ── */
         .learner-table { background:#fff; border:1px solid #EFEFED; border-radius:14px; overflow:hidden; }
-        .table-head { display:grid; grid-template-columns:1fr 150px 120px 160px 130px; padding:10px 20px; border-bottom:1px solid #F5F5F3; background:#FAFAF8; }
+        .table-head { display:grid; grid-template-columns:1fr 150px 120px 160px 150px; padding:10px 20px; border-bottom:1px solid #F5F5F3; background:#FAFAF8; }
         .th { font-size:11px; font-weight:500; color:#AAA; text-transform:uppercase; letter-spacing:0.05em; }
-        .learner-row { display:grid; grid-template-columns:1fr 150px 120px 160px 130px; padding:12px 20px; border-bottom:1px solid #F8F8F6; align-items:center; transition:background 0.15s; }
+        .learner-row { display:grid; grid-template-columns:1fr 150px 120px 160px 150px; padding:12px 20px; border-bottom:1px solid #F8F8F6; align-items:center; transition:background 0.15s; }
         .learner-row:last-child { border-bottom:none; }
         .learner-row:hover { background:#FAFAF8; }
         .learner-info { display:flex; align-items:center; gap:10px; }
@@ -210,20 +256,20 @@ export default function ManageLearners() {
         .flag-docs { background:#FFFBEB; color:#D97706; }
         .flag-incomplete { background:#F5F5F3; color:#777; }
         .flag-ok { background:#F0FDF4; color:#15803D; }
-        .actions { display:flex; align-items:center; gap:6px; justify-content:flex-end; }
-        .action-btn { font-size:11px; padding:5px 10px; border-radius:7px; border:1px solid transparent; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.15s; font-weight:500; display:flex; align-items:center; gap:4px; }
+        .actions { display:flex; align-items:center; gap:5px; justify-content:flex-end; flex-wrap:wrap; }
+        .action-btn { font-size:11px; padding:5px 10px; border-radius:7px; border:1px solid transparent; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.15s; font-weight:500; display:flex; align-items:center; gap:4px; white-space:nowrap; }
         .view-btn { background:#F0F9FF; color:#0369A1; border-color:#BFDBFE; }
         .view-btn:hover { background:#DBEAFE; }
-        .deactivate-btn { background:#FFF; color:#AAA; border-color:#EFEFED; }
+        .deactivate-btn { background:#fff; color:#AAA; border-color:#EFEFED; }
         .deactivate-btn:hover { background:#FEF2F2; color:#DC2626; border-color:#FECACA; }
         .activate-btn { background:#F0FDF4; color:#15803D; border-color:#BBF7D0; }
         .activate-btn:hover { background:#DCFCE7; }
+        .delete-btn { background:#FEF2F2; color:#DC2626; border-color:#FECACA; }
+        .delete-btn:hover { background:#FEE2E2; }
         .empty-state { padding:48px 20px; text-align:center; }
         .empty-icon { width:44px; height:44px; background:#F5F5F3; border-radius:12px; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; color:#CCC; }
         .empty-title { font-size:14px; font-weight:500; color:#555; margin-bottom:4px; }
         .empty-sub { font-size:12px; color:#AAA; }
-
-        /* ── Add form ── */
         .form-card { background:#fff; border:1px solid #EFEFED; border-radius:14px; padding:24px; margin-bottom:20px; }
         .form-title { font-size:14px; font-weight:500; color:#1A1A1A; margin-bottom:16px; }
         .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
@@ -236,26 +282,89 @@ export default function ManageLearners() {
         .class-section { grid-column:span 2; display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:14px; background:#FAFAF8; border-radius:10px; border:1px solid #F0F0EE; }
         .class-section-title { grid-column:span 2; font-size:11px; font-weight:500; color:#888; text-transform:uppercase; letter-spacing:0.04em; }
         .form-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
-        .save-btn { background:#1A1A1A; color:white; border:none; border-radius:9px; padding:9px 20px; font-size:13px; font-weight:500; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.2s; }
-        .save-btn:hover { background:#333; }
+        .save-btn { background:#1A1A1A; color:white; border:none; border-radius:9px; padding:9px 20px; font-size:13px; font-weight:500; cursor:pointer; font-family:'DM Sans',sans-serif; }
         .save-btn:disabled { opacity:0.5; cursor:not-allowed; }
         .cancel-form-btn { background:#F5F5F3; color:#666; border:none; border-radius:9px; padding:9px 16px; font-size:13px; cursor:pointer; font-family:'DM Sans',sans-serif; }
-        .cancel-form-btn:hover { background:#EBEBEB; }
         .error-msg { font-size:12px; color:#DC2626; margin-top:8px; }
         .divider { color:#DDD; }
-        @media (max-width:768px) {
-          .wrap { padding:16px; }
-          .table-head { display:none; }
-          .learner-row { grid-template-columns:1fr; gap:4px; padding:12px 16px; }
-          .col-classes, .col-att, .col-issues { display:none; }
-          .form-grid { grid-template-columns:1fr; }
-          .topbar { padding:0 16px; }
-          .filter-row { flex-direction:column; align-items:stretch; }
-          .chips { flex-wrap:wrap; }
+
+        /* ── Delete modal ── */
+        .modal-overlay {
+          position: fixed; inset: 0; z-index: 100;
+          background: rgba(0,0,0,0.4);
+          backdrop-filter: blur(4px);
+          display: flex; align-items: center; justify-content: center;
+          padding: 20px;
+        }
+        .modal {
+          background: #fff; border-radius: 16px;
+          width: 100%; max-width: 440px;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+          overflow: hidden;
+        }
+        .modal-head {
+          padding: 20px 24px 16px;
+          border-bottom: 1px solid #F5F5F3;
+          display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+        }
+        .modal-icon {
+          width: 40px; height: 40px; border-radius: 10px;
+          display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
+        }
+        .modal-title { font-size: 15px; font-weight: 600; color: #1A1A1A; margin-bottom: 3px; }
+        .modal-sub { font-size: 12px; color: #AAA; line-height: 1.5; }
+        .modal-close { background: none; border: none; cursor: pointer; color: #CCC; padding: 2px; }
+        .modal-close:hover { color: #888; }
+        .modal-body { padding: 20px 24px; }
+        .modal-step { font-size: 11px; font-weight: 600; color: #AAA; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+        .modal-warning {
+          background: #FEF2F2; border: 1px solid #FECACA; border-radius: 10px;
+          padding: 12px 14px; margin-bottom: 14px;
+        }
+        .modal-warning-title { font-size: 13px; font-weight: 600; color: #DC2626; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+        .modal-warning-list { font-size: 12px; color: #991B1B; line-height: 1.7; margin: 0; padding-left: 14px; }
+        .modal-info { font-size: 13px; color: #555; line-height: 1.6; margin-bottom: 14px; }
+        .modal-name-box {
+          background: #F8F7F4; border-radius: 8px;
+          padding: 10px 14px; margin-bottom: 14px;
+          font-size: 14px; font-weight: 600; color: #1A1A1A;
+          text-align: center; letter-spacing: 0.02em;
+        }
+        .modal-confirm-input {
+          width: 100%; height: 40px;
+          border: 1.5px solid #EFEFED; border-radius: 9px;
+          padding: 0 12px; font-size: 13px;
+          font-family: 'DM Sans', sans-serif;
+          color: #1A1A1A; background: #fff; outline: none;
+          transition: border-color 0.15s;
+          margin-bottom: 10px;
+        }
+        .modal-confirm-input:focus { border-color: #DC2626; }
+        .modal-confirm-input.match { border-color: #22C55E; }
+        .modal-confirm-input::placeholder { color: #CCC; }
+        .modal-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 0 24px 20px; }
+        .modal-cancel-btn { background: #F5F5F3; color: #666; border: none; border-radius: 9px; padding: 9px 16px; font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+        .modal-cancel-btn:hover { background: #EBEBEB; }
+        .modal-next-btn { background: #1A1A1A; color: white; border: none; border-radius: 9px; padding: 9px 18px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+        .modal-next-btn:hover { background: #333; }
+        .modal-delete-btn { background: #DC2626; color: white; border: none; border-radius: 9px; padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+        .modal-delete-btn:hover:not(:disabled) { background: #B91C1C; }
+        .modal-delete-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .modal-error { font-size: 12px; color: #DC2626; margin-bottom: 10px; }
+
+        @media (max-width: 768px) {
+          .wrap { padding: 16px; }
+          .table-head { display: none; }
+          .learner-row { grid-template-columns: 1fr; gap: 6px; padding: 12px 16px; }
+          .form-grid { grid-template-columns: 1fr; }
+          .form-group.col2, .class-section { grid-column: span 1; }
+          .class-section { grid-template-columns: 1fr; }
+          .topbar { padding: 0 16px; }
         }
       `}</style>
 
-      {/* Topbar */}
+      {/* ── Topbar ── */}
       <div className="topbar">
         <div className="topbar-left">
           <button className="back-btn" onClick={() => router.push('/admin')}>
@@ -268,56 +377,42 @@ export default function ManageLearners() {
         {activeListTab === 'active' && (
           <button className={`add-btn ${showForm ? 'cancel' : ''}`} onClick={() => setShowForm(!showForm)}>
             {showForm ? 'Cancel' : (
-              <>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Add Learner
-              </>
+              <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Learner</>
             )}
           </button>
         )}
       </div>
 
       <div className="wrap">
-        {/* Tab bar */}
+        {/* Tabs */}
         <div className="list-tabs">
           <button className={`list-tab ${activeListTab === 'active' ? 'active' : ''}`} onClick={() => setActiveListTab('active')}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-            Active Learners
-            <span className="tab-count">{activeCount}</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            Active Learners <span className="tab-count">{activeCount}</span>
           </button>
           <button className={`list-tab ${activeListTab === 'archived' ? 'active' : ''}`} onClick={() => setActiveListTab('archived')}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-            Archived
-            <span className="tab-count">{archivedCount}</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+            Archived <span className="tab-count">{archivedCount}</span>
           </button>
         </div>
 
         {/* ── ACTIVE TAB ── */}
         {activeListTab === 'active' && (
           <>
-            {/* Report chips */}
             <div className="report-row">
-              <div className={`report-chip ${filterIssues === 'all' ? 'selected' : ''}`} onClick={() => setFilterIssues('all')}>
-                <span className="rc-dot" style={{ background: '#22C55E' }} />
-                All active <span className="rc-n">{activeCount}</span>
-              </div>
-              <div className={`report-chip ${filterIssues === 'atrisk' ? 'selected' : ''}`} onClick={() => setFilterIssues('atrisk')}>
-                <span className="rc-dot" style={{ background: '#EF4444' }} />
-                At risk <span className="rc-n" style={{ color: filterIssues === 'atrisk' ? 'inherit' : '#EF4444' }}>{atRiskCount}</span>
-              </div>
-              {docTypes.length > 0 && (
-                <div className={`report-chip ${filterIssues === 'missingdocs' ? 'selected' : ''}`} onClick={() => setFilterIssues('missingdocs')}>
-                  <span className="rc-dot" style={{ background: '#EAB308' }} />
-                  Missing docs <span className="rc-n" style={{ color: filterIssues === 'missingdocs' ? 'inherit' : '#D97706' }}>{missingDocsCount}</span>
+              {[
+                { key: 'all',         label: 'All active',        dot: '#22C55E', n: activeCount,      nColor: undefined },
+                { key: 'atrisk',      label: 'At risk',           dot: '#EF4444', n: atRiskCount,      nColor: '#EF4444' },
+                { key: 'missingdocs', label: 'Missing docs',      dot: '#EAB308', n: missingDocsCount, nColor: '#D97706' },
+                { key: 'incomplete',  label: 'Incomplete profile', dot: '#AAA',    n: incompleteCount,  nColor: '#777' },
+              ].filter(c => c.key !== 'missingdocs' || docTypes.length > 0).map(c => (
+                <div key={c.key} className={`report-chip ${filterIssues === c.key ? 'selected' : ''}`} onClick={() => setFilterIssues(c.key)}>
+                  <span className="rc-dot" style={{ background: c.dot }} />
+                  {c.label} <span className="rc-n" style={{ color: filterIssues === c.key ? 'inherit' : c.nColor }}>{c.n}</span>
                 </div>
-              )}
-              <div className={`report-chip ${filterIssues === 'incomplete' ? 'selected' : ''}`} onClick={() => setFilterIssues('incomplete')}>
-                <span className="rc-dot" style={{ background: '#AAA' }} />
-                Incomplete profile <span className="rc-n" style={{ color: filterIssues === 'incomplete' ? 'inherit' : '#777' }}>{incompleteCount}</span>
-              </div>
+              ))}
             </div>
 
-            {/* Add form */}
             {showForm && (
               <div className="form-card">
                 <div className="form-title">New Learner</div>
@@ -326,38 +421,14 @@ export default function ManageLearners() {
                     <label className="form-label">Full name *</label>
                     <input className="form-input" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Full name" />
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Student ID</label>
-                    <input className="form-input" value={studentId} onChange={e => setStudentId(e.target.value)} placeholder="e.g. STU001" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Join date</label>
-                    <input className="form-input" type="date" value={joinDate} onChange={e => setJoinDate(e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Date of birth</label>
-                    <input className="form-input" type="date" value={dob} onChange={e => setDob(e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Phone</label>
-                    <input className="form-input" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone number" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Home language</label>
-                    <input className="form-input" value={homeLanguage} onChange={e => setHomeLanguage(e.target.value)} placeholder="e.g. Zulu, English" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Previous school</label>
-                    <input className="form-input" value={previousSchool} onChange={e => setPreviousSchool(e.target.value)} placeholder="Previous school" />
-                  </div>
-                  <div className="form-group col2">
-                    <label className="form-label">Address</label>
-                    <input className="form-input" value={address} onChange={e => setAddress(e.target.value)} placeholder="Home address" />
-                  </div>
-                  <div className="form-group col2">
-                    <label className="form-label">Medical notes</label>
-                    <input className="form-input" value={medicalNotes} onChange={e => setMedicalNotes(e.target.value)} placeholder="Allergies, conditions..." />
-                  </div>
+                  <div className="form-group"><label className="form-label">Student ID</label><input className="form-input" value={studentId} onChange={e => setStudentId(e.target.value)} placeholder="e.g. STU001" /></div>
+                  <div className="form-group"><label className="form-label">Join date</label><input className="form-input" type="date" value={joinDate} onChange={e => setJoinDate(e.target.value)} /></div>
+                  <div className="form-group"><label className="form-label">Date of birth</label><input className="form-input" type="date" value={dob} onChange={e => setDob(e.target.value)} /></div>
+                  <div className="form-group"><label className="form-label">Phone</label><input className="form-input" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone number" /></div>
+                  <div className="form-group"><label className="form-label">Home language</label><input className="form-input" value={homeLanguage} onChange={e => setHomeLanguage(e.target.value)} placeholder="e.g. Zulu, English" /></div>
+                  <div className="form-group"><label className="form-label">Previous school</label><input className="form-input" value={previousSchool} onChange={e => setPreviousSchool(e.target.value)} placeholder="Previous school" /></div>
+                  <div className="form-group col2"><label className="form-label">Address</label><input className="form-input" value={address} onChange={e => setAddress(e.target.value)} placeholder="Home address" /></div>
+                  <div className="form-group col2"><label className="form-label">Medical notes</label><input className="form-input" value={medicalNotes} onChange={e => setMedicalNotes(e.target.value)} placeholder="Allergies, conditions..." /></div>
                   <div className="class-section">
                     <span className="class-section-title">Class assignment</span>
                     <div className="form-group">
@@ -384,12 +455,9 @@ export default function ManageLearners() {
               </div>
             )}
 
-            {/* Filters */}
             <div className="filters">
               <div className="search-wrap">
-                <span className="search-icon">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                </span>
+                <span className="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
                 <input className="search-input" placeholder="Search by name..." value={search} onChange={e => setSearch(e.target.value)} />
               </div>
               <select className="filter-select" value={filterClass} onChange={e => setFilterClass(e.target.value)}>
@@ -397,14 +465,8 @@ export default function ManageLearners() {
                 {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
+            <p className="results-info">Showing {filtered.length} learner{filtered.length !== 1 ? 's' : ''}{search && ` matching "${search}"`}</p>
 
-            <p className="results-info">
-              Showing {filtered.length} learner{filtered.length !== 1 ? 's' : ''}
-              {search && ` matching "${search}"`}
-              {filterIssues !== 'all' && ` · filtered by issue`}
-            </p>
-
-            {/* Active table */}
             <div className="learner-table">
               <div className="table-head">
                 <span className="th">Learner</span>
@@ -417,9 +479,7 @@ export default function ManageLearners() {
                 <div className="empty-state"><p className="empty-title">Loading...</p></div>
               ) : filtered.length === 0 ? (
                 <div className="empty-state">
-                  <div className="empty-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                  </div>
+                  <div className="empty-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
                   <p className="empty-title">No learners found</p>
                   <p className="empty-sub">Try adjusting your filters</p>
                 </div>
@@ -443,16 +503,12 @@ export default function ManageLearners() {
                       <div className="class-badges">
                         {islamicClass && <span className="class-badge islamic"><IslamicIcon /> {islamicClass.classes?.name}</span>}
                         {secularClass && <span className="class-badge secular"><SchoolIcon /> {secularClass.classes?.name}</span>}
-                        {!islamicClass && !secularClass && <span style={{ fontSize: '11px', color: '#CCC' }}>—</span>}
+                        {!islamicClass && !secularClass && <span style={{ fontSize: 11, color: '#CCC' }}>—</span>}
                       </div>
                       <div>
-                        {l.attPct === null ? (
-                          <span style={{ fontSize: '12px', color: '#CCC' }}>No data</span>
-                        ) : (
+                        {l.attPct === null ? <span style={{ fontSize: 12, color: '#CCC' }}>No data</span> : (
                           <div className="att-wrap">
-                            <div className="att-track">
-                              <div className="att-fill" style={{ width: `${l.attPct}%`, background: isAtRisk ? '#EF4444' : '#22C55E' }} />
-                            </div>
+                            <div className="att-track"><div className="att-fill" style={{ width: `${l.attPct}%`, background: isAtRisk ? '#EF4444' : '#22C55E' }} /></div>
                             <span className="att-pct" style={{ color: isAtRisk ? '#EF4444' : '#22C55E' }}>{l.attPct}%</span>
                           </div>
                         )}
@@ -468,10 +524,7 @@ export default function ManageLearners() {
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                           View
                         </button>
-                        <button className="action-btn deactivate-btn" onClick={() => toggleActive(l.id, true)}>
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                          Archive
-                        </button>
+                        <button className="action-btn deactivate-btn" onClick={() => toggleActive(l.id, true)}>Archive</button>
                       </div>
                     </div>
                   )
@@ -484,15 +537,18 @@ export default function ManageLearners() {
         {/* ── ARCHIVED TAB ── */}
         {activeListTab === 'archived' && (
           <>
-            <div style={{ marginBottom: '14px' }}>
-              <div className="search-wrap" style={{ maxWidth: '360px' }}>
-                <span className="search-icon">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                </span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+              <div className="search-wrap" style={{ maxWidth: 360 }}>
+                <span className="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
                 <input className="search-input" placeholder="Search archived learners..." value={archiveSearch} onChange={e => setArchiveSearch(e.target.value)} />
+              </div>
+              <div style={{ fontSize: 12, color: '#AAA', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span style={{ color: '#DC2626', fontWeight: 500 }}>Deletion permanently removes all learner data</span>
               </div>
             </div>
             <p className="results-info">{archivedLearners.length} archived learner{archivedLearners.length !== 1 ? 's' : ''}</p>
+
             <div className="learner-table">
               <div className="table-head">
                 <span className="th">Learner</span>
@@ -505,17 +561,15 @@ export default function ManageLearners() {
                 <div className="empty-state"><p className="empty-title">Loading...</p></div>
               ) : archivedLearners.length === 0 ? (
                 <div className="empty-state">
-                  <div className="empty-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-                  </div>
-                  <p className="empty-title">{archiveSearch ? `No archived learners matching "${archiveSearch}"` : 'No archived learners'}</p>
+                  <div className="empty-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg></div>
+                  <p className="empty-title">{archiveSearch ? `No results for "${archiveSearch}"` : 'No archived learners'}</p>
                 </div>
               ) : (
                 archivedLearners.map((l: any) => {
                   const islamicClass = l.learner_classes?.find((lc: any) => lc.class_type === 'islamic')
                   const secularClass = l.learner_classes?.find((lc: any) => lc.class_type === 'secular')
                   return (
-                    <div key={l.id} className="learner-row" style={{ opacity: 0.75 }}>
+                    <div key={l.id} className="learner-row" style={{ opacity: 0.8 }}>
                       <div className="learner-info">
                         <div className="learner-avatar inactive">{l.full_name.charAt(0)}</div>
                         <div>
@@ -526,12 +580,10 @@ export default function ManageLearners() {
                       <div className="class-badges">
                         {islamicClass && <span className="class-badge islamic"><IslamicIcon /> {islamicClass.classes?.name}</span>}
                         {secularClass && <span className="class-badge secular"><SchoolIcon /> {secularClass.classes?.name}</span>}
-                        {!islamicClass && !secularClass && <span style={{ fontSize: '11px', color: '#CCC' }}>—</span>}
+                        {!islamicClass && !secularClass && <span style={{ fontSize: 11, color: '#CCC' }}>—</span>}
                       </div>
                       <div>
-                        {l.attPct === null ? (
-                          <span style={{ fontSize: '12px', color: '#CCC' }}>No data</span>
-                        ) : (
+                        {l.attPct === null ? <span style={{ fontSize: 12, color: '#CCC' }}>No data</span> : (
                           <div className="att-wrap">
                             <div className="att-track"><div className="att-fill" style={{ width: `${l.attPct}%`, background: '#CCC' }} /></div>
                             <span className="att-pct" style={{ color: '#AAA' }}>{l.attPct}%</span>
@@ -548,6 +600,10 @@ export default function ManageLearners() {
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                           Reactivate
                         </button>
+                        <button className="action-btn delete-btn" onClick={() => openDeleteModal(l)}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                          Delete
+                        </button>
                       </div>
                     </div>
                   )
@@ -557,6 +613,113 @@ export default function ManageLearners() {
           </>
         )}
       </div>
+
+      {/* ── Delete modal ── */}
+      {deleteTarget && (
+        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) closeDeleteModal() }}>
+          <div className="modal">
+            <div className="modal-head">
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <div className="modal-icon" style={{ background: '#FEF2F2' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                </div>
+                <div>
+                  <div className="modal-title">Permanently delete learner</div>
+                  <div className="modal-sub">This cannot be undone. All data will be lost.</div>
+                </div>
+              </div>
+              <button className="modal-close" onClick={closeDeleteModal}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            <div className="modal-body">
+              {/* Step 1 — Warning */}
+              {deleteStep === 1 && (
+                <>
+                  <div className="modal-step">Step 1 of 3 — Review what will be deleted</div>
+                  <div className="modal-warning">
+                    <div className="modal-warning-title">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                      The following will be permanently deleted:
+                    </div>
+                    <ul className="modal-warning-list">
+                      <li>All attendance records ({deleteTarget.attCount || 0} records)</li>
+                      <li>Class assignments & enrolment history</li>
+                      <li>Submitted documents & document records</li>
+                      <li>Topic progress & curriculum tracking</li>
+                      <li>Homework submissions</li>
+                      <li>Teacher notes</li>
+                      <li>Learner profile & personal details</li>
+                    </ul>
+                  </div>
+                  <p className="modal-info">
+                    <strong>{deleteTarget.full_name}</strong> is currently archived. Deletion is permanent and cannot be reversed.
+                  </p>
+                </>
+              )}
+
+              {/* Step 2 — Second confirmation */}
+              {deleteStep === 2 && (
+                <>
+                  <div className="modal-step">Step 2 of 3 — Confirm your intent</div>
+                  <p className="modal-info">
+                    You are about to permanently delete <strong>{deleteTarget.full_name}</strong> and all associated data. Are you absolutely sure?
+                  </p>
+                  <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+                    <div style={{ flex: 1, background: '#FAFAF8', border: '1px solid #EFEFED', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 20, fontWeight: 600, color: '#1A1A1A' }}>{deleteTarget.attCount || 0}</div>
+                      <div style={{ fontSize: 11, color: '#AAA', marginTop: 2 }}>Attendance records</div>
+                    </div>
+                    <div style={{ flex: 1, background: '#FAFAF8', border: '1px solid #EFEFED', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 20, fontWeight: 600, color: '#1A1A1A' }}>{deleteTarget.docsSubmitted || 0}</div>
+                      <div style={{ fontSize: 11, color: '#AAA', marginTop: 2 }}>Documents</div>
+                    </div>
+                    <div style={{ flex: 1, background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#DC2626' }}>Permanent</div>
+                      <div style={{ fontSize: 11, color: '#DC2626', marginTop: 2 }}>Cannot undo</div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Step 3 — Type name */}
+              {deleteStep === 3 && (
+                <>
+                  <div className="modal-step">Step 3 of 3 — Type the learner's full name to confirm</div>
+                  <p className="modal-info">To confirm deletion, type the learner's exact full name below:</p>
+                  <div className="modal-name-box">{deleteTarget.full_name}</div>
+                  <input
+                    className={`modal-confirm-input ${deleteConfirmText === deleteTarget.full_name ? 'match' : ''}`}
+                    placeholder="Type full name here..."
+                    value={deleteConfirmText}
+                    onChange={e => { setDeleteConfirmText(e.target.value); setDeleteError('') }}
+                    autoFocus
+                  />
+                  {deleteError && <p className="modal-error">{deleteError}</p>}
+                </>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button className="modal-cancel-btn" onClick={closeDeleteModal}>Cancel</button>
+              {deleteStep < 3 ? (
+                <button className="modal-next-btn" onClick={() => setDeleteStep(s => (s + 1) as 1|2|3)}>
+                  I understand, continue →
+                </button>
+              ) : (
+                <button
+                  className="modal-delete-btn"
+                  onClick={performDelete}
+                  disabled={deleting || deleteConfirmText !== deleteTarget.full_name}
+                >
+                  {deleting ? 'Deleting...' : 'Permanently delete'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

@@ -25,7 +25,7 @@ export default function LoginPage() {
     if (userData?.role === 'admin') router.push('/admin')
     else if (userData?.role === 'teacher') router.push('/teacher')
     else if (userData?.role === 'baskan') router.push('/baskan')
-    else if (userData?.role === 'holistic_teacher') router.push('/holistic-teacher')
+    else if (userData?.role === 'islamic_teacher') router.push('/islamic-teacher')
     else setError('User role not found. Contact admin.')
 
     setLoading(false)
