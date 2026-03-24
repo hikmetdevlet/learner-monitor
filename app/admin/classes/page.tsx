@@ -177,6 +177,12 @@ export default function ManageClasses() {
         .stat-card { background:#fff; border:1px solid #EFEFED; border-radius:12px; padding:14px; text-align:center; }
         .stat-n { font-size:22px; font-weight:500; }
         .stat-l { font-size:10px; color:#AAA; margin-top:3px; text-transform:uppercase; letter-spacing:0.04em; }
+        @media (max-width:768px) {
+          .wrap { padding:16px; }
+          .stats-summary { grid-template-columns:1fr 1fr; }
+          .topbar { padding:0 16px; }
+          .form-grid { grid-template-columns:1fr; }
+        }
       `}</style>
 
       <div className="topbar">

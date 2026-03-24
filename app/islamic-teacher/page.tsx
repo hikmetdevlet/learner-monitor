@@ -373,6 +373,11 @@ export default function IslamicTeacherDashboard() {
         .empty-state { padding:48px 20px; text-align:center; }
         .empty-title { font-size:14px; font-weight:500; color:#555; margin-bottom:4px; }
         .empty-sub { font-size:12px; color:#AAA; }
+        @media (max-width:768px) {
+          .wrap { padding:16px; }
+          .stats-grid { grid-template-columns:1fr 1fr; }
+          .topbar { padding:0 16px; }
+        }
       `}</style>
 
       <div className="topbar">

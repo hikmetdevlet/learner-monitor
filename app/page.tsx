@@ -25,7 +25,7 @@ export default function LoginPage() {
     if (userData?.role === 'admin') router.push('/admin')
     else if (userData?.role === 'teacher') router.push('/teacher')
     else if (userData?.role === 'baskan') router.push('/baskan')
-    else if (userData?.role === 'islamic_teacher') router.push('/islamic-teacher')
+    else if (userData?.role === 'holistic_teacher') router.push('/holistic-teacher')
     else setError('User role not found. Contact admin.')
 
     setLoading(false)
@@ -64,7 +64,6 @@ export default function LoginPage() {
           width: 400px;
           height: 400px;
           background: radial-gradient(circle, rgba(34,197,94,0.15) 0%, transparent 70%);
-          pointer-events: none;
         }
 
         .login-left::after {
@@ -75,7 +74,6 @@ export default function LoginPage() {
           width: 300px;
           height: 300px;
           background: radial-gradient(circle, rgba(34,197,94,0.08) 0%, transparent 70%);
-          pointer-events: none;
         }
 
         .brand-mark {
@@ -86,7 +84,6 @@ export default function LoginPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 18px;
         }
 
         .brand-name {
@@ -136,7 +133,6 @@ export default function LoginPage() {
         .bottom-text {
           font-size: 12px;
           color: rgba(255,255,255,0.2);
-          line-height: 1.6;
         }
 
         .login-right {
@@ -165,7 +161,6 @@ export default function LoginPage() {
           font-family: 'DM Serif Display', serif;
           font-size: 32px;
           color: #1a1a1a;
-          line-height: 1.2;
           margin-bottom: 8px;
         }
 
@@ -176,17 +171,14 @@ export default function LoginPage() {
           font-weight: 300;
         }
 
-        .input-group {
-          margin-bottom: 20px;
-        }
+        .input-group { margin-bottom: 20px; }
 
         .input-label {
-          display: block;
           font-size: 12px;
           font-weight: 500;
           color: #555;
           margin-bottom: 8px;
-          letter-spacing: 0.02em;
+          display: block;
         }
 
         .input-field {
@@ -195,28 +187,18 @@ export default function LoginPage() {
           border: 1.5px solid #e5e5e5;
           border-radius: 10px;
           padding: 0 16px;
-          font-size: 14px;
-          font-family: 'DM Sans', sans-serif;
-          color: #1a1a1a;
-          background: #ffffff;
-          outline: none;
-          transition: border-color 0.2s;
         }
 
         .input-field:focus {
           border-color: #22c55e;
-        }
-
-        .input-field::placeholder {
-          color: #bbb;
+          outline: none;
         }
 
         .error-box {
           background: #fff5f5;
           border: 1px solid #fecaca;
           border-radius: 8px;
-          padding: 10px 14px;
-          font-size: 13px;
+          padding: 10px;
           color: #dc2626;
           margin-bottom: 20px;
         }
@@ -225,38 +207,13 @@ export default function LoginPage() {
           width: 100%;
           height: 50px;
           background: #1a1a1a;
-          color: #ffffff;
-          border: none;
+          color: white;
           border-radius: 10px;
-          font-size: 14px;
-          font-weight: 500;
-          font-family: 'DM Sans', sans-serif;
           cursor: pointer;
-          transition: all 0.2s;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          letter-spacing: 0.02em;
+          border: none;
         }
 
-        .submit-btn:hover:not(:disabled) {
-          background: #22c55e;
-          transform: translateY(-1px);
-        }
-
-        .submit-btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .submit-btn .arrow {
-          transition: transform 0.2s;
-        }
-
-        .submit-btn:hover .arrow {
-          transform: translateX(3px);
-        }
+        .submit-btn:hover { background: #22c55e; }
 
         .divider {
           display: flex;
@@ -274,7 +231,6 @@ export default function LoginPage() {
         .divider-text {
           font-size: 11px;
           color: #bbb;
-          letter-spacing: 0.04em;
         }
 
         .role-badges {
@@ -284,58 +240,51 @@ export default function LoginPage() {
         }
 
         .role-badge {
+          display: flex;
+          align-items: center;
+          gap: 6px;
           font-size: 11px;
           padding: 4px 10px;
           border-radius: 20px;
           background: #f5f5f5;
-          color: #888;
           border: 1px solid #e5e5e5;
         }
 
         @media (max-width: 768px) {
           .login-left { display: none; }
-          .login-right { padding: 32px 24px; }
         }
-
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(16px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        .login-form-wrap { animation: fadeUp 0.5s ease forwards; }
       `}</style>
 
-      {/* Left panel */}
+      {/* LEFT */}
       <div className="login-left">
         <div>
-          <div className="brand-mark">🕌</div>
+          <div className="brand-mark">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="6" stroke="white" strokeWidth="1.5"/>
+              <path d="M12 6v12M6 12h12" stroke="white" strokeWidth="1.5"/>
+            </svg>
+          </div>
+
           <h1 className="brand-name">Learner<br />Monitor</h1>
-          <p className="brand-tagline">A comprehensive platform for tracking academic progress, Islamic education, and daily attendance.</p>
+
+          <p className="brand-tagline">
+            A comprehensive platform for tracking academic progress, holistic education, and daily attendance.
+          </p>
         </div>
 
         <div className="stat-grid">
-          <div className="stat-card">
-            <div className="stat-value">4</div>
-            <div className="stat-label">User roles</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-value">2</div>
-            <div className="stat-label">Programs</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-value">5</div>
-            <div className="stat-label">Daily Salaah</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-value">∞</div>
-            <div className="stat-label">Topics</div>
-          </div>
+          <div className="stat-card"><div className="stat-value">4</div><div className="stat-label">User roles</div></div>
+          <div className="stat-card"><div className="stat-value">2</div><div className="stat-label">Programs</div></div>
+          <div className="stat-card"><div className="stat-value">5</div><div className="stat-label">Daily Sessions</div></div>
+          <div className="stat-card"><div className="stat-value">∞</div><div className="stat-label">Topics</div></div>
         </div>
 
-        <p className="bottom-text">Secure · Private · Built for Islamic schools</p>
+        <p className="bottom-text">
+          Secure · Private · Built for modern learning environments
+        </p>
       </div>
 
-      {/* Right panel */}
+      {/* RIGHT */}
       <div className="login-right">
         <div className="login-form-wrap">
           <p className="form-eyebrow">Welcome back</p>
@@ -345,34 +294,18 @@ export default function LoginPage() {
           <form onSubmit={handleLogin}>
             <div className="input-group">
               <label className="input-label">Email address</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="input-field"
-                required
-              />
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="input-field" required />
             </div>
 
             <div className="input-group">
               <label className="input-label">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="input-field"
-                required
-              />
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="input-field" required />
             </div>
 
             {error && <div className="error-box">{error}</div>}
 
             <button type="submit" className="submit-btn" disabled={loading}>
-              {loading ? 'Signing in...' : (
-                <>Sign in <span className="arrow">→</span></>
-              )}
+              {loading ? 'Signing in...' : 'Sign in →'}
             </button>
           </form>
 
@@ -383,10 +316,10 @@ export default function LoginPage() {
           </div>
 
           <div className="role-badges">
-            <span className="role-badge">🛡️ Admin</span>
-            <span className="role-badge">📚 Teacher</span>
-            <span className="role-badge">🕌 Islamic Teacher</span>
-            <span className="role-badge">👤 Baskan</span>
+            <span className="role-badge">Admin</span>
+            <span className="role-badge">Teacher</span>
+            <span className="role-badge">Holistic Teacher</span>
+            <span className="role-badge">Baskan</span>
           </div>
         </div>
       </div>

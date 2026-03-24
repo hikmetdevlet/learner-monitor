@@ -256,7 +256,13 @@ export default function CurriculumAdmin() {
         .stat-mini { background:#fff; border:1px solid #EFEFED; border-radius:12px; padding:14px; text-align:center; }
         .stat-n { font-size:22px; font-weight:500; color:#1A1A1A; }
         .stat-l { font-size:10px; color:#AAA; margin-top:3px; text-transform:uppercase; letter-spacing:0.04em; }
-        @media (max-width:768px) { .layout { grid-template-columns:1fr; } .sidebar { height:auto; border-right:none; border-bottom:1px solid #EFEFED; } }
+        @media (max-width:768px) {
+          .layout { grid-template-columns:1fr; }
+          .sidebar { height:auto; border-right:none; border-bottom:1px solid #EFEFED; }
+          .stats-row { grid-template-columns:1fr 1fr; }
+          .topbar { padding:0 16px; }
+          .content { padding:16px; }
+        }
       `}</style>
 
       <div className="topbar">

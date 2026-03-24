@@ -172,7 +172,7 @@ export default function LearnerProfile() {
         <h1 className="text-lg font-medium text-gray-900">Learner Profile</h1>
       </div>
 
-      <div className="max-w-3xl mx-auto px-6 py-8">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Profile header */}
         <div className="bg-white rounded-xl border border-gray-100 p-6 mb-6">
           <div className="flex items-center gap-4">
@@ -204,7 +204,7 @@ export default function LearnerProfile() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {[
             { label: 'Attendance', value: attendancePct, color: attendancePct < atRiskThreshold ? 'text-red-500' : 'text-green-600' },
             { label: 'Homework', value: hwPct, color: hwPct < 50 ? 'text-yellow-500' : 'text-green-600' },

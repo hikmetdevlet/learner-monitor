@@ -243,6 +243,16 @@ export default function ManageLearners() {
         .cancel-form-btn:hover { background:#EBEBEB; }
         .error-msg { font-size:12px; color:#DC2626; margin-top:8px; }
         .divider { color:#DDD; }
+        @media (max-width:768px) {
+          .wrap { padding:16px; }
+          .table-head { display:none; }
+          .learner-row { grid-template-columns:1fr; gap:4px; padding:12px 16px; }
+          .col-classes, .col-att, .col-issues { display:none; }
+          .form-grid { grid-template-columns:1fr; }
+          .topbar { padding:0 16px; }
+          .filter-row { flex-direction:column; align-items:stretch; }
+          .chips { flex-wrap:wrap; }
+        }
       `}</style>
 
       {/* Topbar */}

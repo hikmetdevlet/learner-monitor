@@ -131,6 +131,12 @@ export default function ClassDetail() {
         .topic-row:last-child { border-bottom:none; }
         .topic-name { font-size:12px; color:#555; }
         .track-pill { font-size:10px; font-weight:500; padding:2px 7px; border-radius:6px; background:#FDF4FF; color:#7E22CE; border:1px solid #E9D5FF; }
+        @media (max-width:768px) {
+          .wrap { padding:16px; }
+          .hero { flex-direction:column; align-items:flex-start; gap:12px; }
+          .hero-stats { flex-wrap:wrap; gap:12px; }
+          .topbar { padding:0 16px; }
+        }
       `}</style>
 
       <div className="topbar">

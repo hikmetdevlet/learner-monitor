@@ -293,6 +293,12 @@ export default function CleaningAdmin() {
           .master-table td { border:1px solid #E5E5E5; padding:10px 12px; font-size:13px; vertical-align:top; }
           .master-table tr:nth-child(even) td { background:#FAFAFA; }
         }
+        @media (max-width:768px) {
+          .wrap { padding:16px; grid-template-columns:1fr; }
+          .learner-grid { grid-template-columns:1fr; }
+          .topbar { padding:0 16px; }
+          .panel { margin-bottom:8px; }
+        }
       `}</style>
 
       {/* Edit location modal */}

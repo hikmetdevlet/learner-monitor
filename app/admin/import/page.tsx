@@ -201,6 +201,13 @@ export default function BulkImport() {
         .type-btn:not(.active-islamic):not(.active-secular) { background:#fff; color:#AAA; }
         .hint { font-size:11px; color:#AAA; margin-top:4px; line-height:1.5; }
         .subj-group-label { font-size:11px; font-weight:500; color:#888; padding:4px 0; margin-top:8px; }
+        @media (max-width:768px) {
+          .layout { grid-template-columns:1fr; }
+          .sidebar { border-right:none; border-bottom:1px solid #EFEFED; padding:12px 16px; display:flex; flex-wrap:wrap; gap:4px; }
+          .main { padding:16px; max-width:100%; }
+          .grid2 { grid-template-columns:1fr; }
+          .topbar { padding:0 16px; }
+        }
       `}</style>
 
       <div className="topbar">

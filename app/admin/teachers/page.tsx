@@ -159,6 +159,11 @@ export default function ManageTeachers() {
         .cancel-dn-btn { background:#F5F5F3; color:#666; border:none; border-radius:7px; padding:6px 10px; font-size:12px; cursor:pointer; font-family:'DM Sans',sans-serif; }
         .empty-group { padding:20px 16px; text-align:center; color:#CCC; font-size:13px; }
         .info-box { background:#F0F9FF; border:1px solid #BFDBFE; border-radius:10px; padding:12px 16px; margin-bottom:20px; font-size:12px; color:#1D4ED8; display:flex; align-items:flex-start; gap:8px; }
+        @media (max-width:768px) {
+          .wrap { padding:16px; }
+          .form-grid { grid-template-columns:1fr; }
+          .topbar { padding:0 16px; }
+        }
       `}</style>
 
       <div className="topbar">

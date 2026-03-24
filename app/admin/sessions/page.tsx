@@ -262,6 +262,18 @@ export default function ManageSessions() {
           .tt-cell-teacher { font-size:10px; color:#666; margin-top:2px; }
           .tt-empty { color:#CCC; font-size:10px; }
         }
+        @media (max-width:768px) {
+          .wrap { padding:16px; grid-template-columns:1fr; }
+          .stats-row { grid-template-columns:1fr 1fr; gap:8px; }
+          .view-tabs { flex-wrap:wrap; gap:4px; }
+          .filter-row { flex-direction:column; align-items:stretch; gap:8px; }
+          .form-card { padding:14px; }
+          .form-row { flex-direction:column; gap:8px; }
+          .day-section { overflow-x:auto; }
+          .session-row { flex-direction:column; align-items:flex-start; gap:6px; padding:10px 12px; }
+          .row-actions { flex-direction:row; }
+          .topbar { padding:0 16px; }
+        }
       `}</style>
 
       {/* Print modal */}

@@ -137,6 +137,10 @@ export default function CleaningReport() {
         .week-bar { width:36px; height:4px; background:#F0F0EE; border-radius:2px; overflow:hidden; margin-top:2px; }
         .week-bar-fill { height:100%; border-radius:2px; }
         .empty-state { padding:48px; text-align:center; color:#CCC; font-size:13px; }
+        @media (max-width:768px) {
+          .wrap { padding:16px; }
+          .topbar { padding:0 16px; }
+        }
       `}</style>
 
       <div className="topbar">

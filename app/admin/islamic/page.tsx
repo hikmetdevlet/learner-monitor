@@ -212,6 +212,11 @@ export default function IslamicAdmin() {
         .tick.done { background:#F0FDF4; color:#15803D; }
         .tick.not { background:#F5F5F3; color:#CCC; }
         .no-topics-msg { padding:16px; background:#FEFCE8; border:1px solid #FDE68A; border-radius:10px; font-size:12px; color:#A16207; margin-bottom:16px; }
+        @media (max-width:768px) {
+          .wrap { padding:16px; }
+          .overall-stats { grid-template-columns:1fr 1fr; }
+          .topbar { padding:0 16px; }
+        }
       `}</style>
 
       <div className="topbar">

@@ -254,6 +254,13 @@ export default function TeacherDashboard() {
         .form-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
         .empty { padding:32px; text-align:center; color:#CCC; font-size:13px; }
         .hw-go-btn { font-size:11px; background:#EFF6FF; color:#1D4ED8; border:1px solid #BFDBFE; border-radius:7px; padding:4px 10px; cursor:pointer; font-family:'DM Sans',sans-serif; font-weight:500; }
+        @media (max-width:768px) {
+          .wrap { padding:16px; }
+          .stats-grid { grid-template-columns:1fr 1fr; gap:8px; }
+          .form-grid { grid-template-columns:1fr; }
+          .topbar { padding:0 16px; }
+          .card { padding:14px; }
+        }
       `}</style>
 
       {/* Topbar */}

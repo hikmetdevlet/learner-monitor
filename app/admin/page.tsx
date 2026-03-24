@@ -354,6 +354,12 @@ export default function AdminDashboard() {
           .menu { grid-template-columns: repeat(2,1fr); }
           .page { padding: 20px; }
         }
+        @media (max-width: 480px) {
+          .menu { grid-template-columns: 1fr; }
+          .stats { grid-template-columns: 1fr 1fr; }
+          .page { padding: 14px; }
+          .topbar { padding: 0 14px; }
+        }
       `}</style>
 
       {/* Nav */}

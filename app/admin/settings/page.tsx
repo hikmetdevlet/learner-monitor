@@ -147,6 +147,11 @@ export default function SettingsPage() {
         .stat-mini { text-align:center; }
         .stat-mini-n { font-size:20px; font-weight:500; color:#1A1A1A; }
         .stat-mini-l { font-size:10px; color:#AAA; text-transform:uppercase; letter-spacing:0.04em; margin-top:2px; }
+        @media (max-width:768px) {
+          .wrap { padding:16px; }
+          .stats-mini { grid-template-columns:1fr 1fr; }
+          .topbar { padding:0 16px; }
+        }
       `}</style>
 
       {/* Topbar */}
