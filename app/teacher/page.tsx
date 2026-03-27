@@ -145,38 +145,111 @@ export default function TeacherDashboard() {
     await Promise.all([loadDashboard(u), loadCurriculum(u), loadBehaviour(u)])
   }
 
-  async function loadDashboard(t: any) {
-    const day = new Date().getDay() === 0 ? 7 : new Date().getDay()
-    const [{ data: sess }, { data: cls }, { data: exms }] = await Promise.all([
-      t.is_head_teacher
-        ? supabase.from('timetable').select('*, classes(name,id), users(full_name,display_name)').eq('day_of_week', day).order('start_time')
-        : supabase.from('timetable').select('*, classes(name,id), users(full_name,display_name)').eq('teacher_id', t.id).eq('day_of_week', day).order('start_time'),
-      t.is_head_teacher
-        ? supabase.from('classes').select('*').eq('class_type', 'secular').order('name')
-        : supabase.from('timetable').select('classes(id,name)').eq('teacher_id', t.id),
-      supabase.from('exams').select('*, classes(name)').eq('is_active', true).gte('exam_date', new Date().toISOString().split('T')[0]).order('exam_date').limit(5),
-    ])
-    setTodaySessions(sess || []); setUpcomingExams(exms || [])
-    const classes = t.is_head_teacher
-      ? (cls || [])
-      : [...new Map((cls || []).map((s: any) => [s.classes?.id, s.classes]).filter(([k]: any) => k)).values()]
-    setMyClasses(classes); setAllClasses(classes)
-    if (classes.length > 0) setEClass((classes[0] as any).id)
-    const eq = t.is_head_teacher
-      ? supabase.from('exams').select('*, classes(name)').eq('is_active', true).order('exam_date')
-      : supabase.from('exams').select('*, classes(name)').eq('teacher_id', t.id).eq('is_active', true).order('exam_date')
-    const { data: ae } = await eq; setExams(ae || [])
-    const stats: any[] = []
-    for (const c of classes) {
-      const { data: lc } = await supabase.from('learner_classes').select('learner_id').eq('class_id', (c as any).id)
-      const ids = lc?.map((l: any) => l.learner_id) || []
-      if (!ids.length) { stats.push({ cls: c, pct: 0, n: 0 }); continue }
-      const { data: a } = await supabase.from('attendance').select('status').in('learner_id', ids)
-      const tot = a?.length || 0, pr = a?.filter((x: any) => x.status === 'present' || x.status === 'late').length || 0
-      stats.push({ cls: c, pct: tot > 0 ? Math.round((pr / tot) * 100) : 0, n: ids.length })
+
+
+
+async function loadDashboard(t: any) {
+  const day = new Date().getDay() === 0 ? 7 : new Date().getDay()
+
+  const [{ data: sess }, { data: cls }, { data: exms }] = await Promise.all([
+    t.is_head_teacher
+      ? supabase.from('timetable')
+          .select('*, classes(name,id), users(full_name,display_name)')
+          .eq('day_of_week', day)
+          .order('start_time')
+      : supabase.from('timetable')
+          .select('*, classes(name,id), users(full_name,display_name)')
+          .eq('teacher_id', t.id)
+          .eq('day_of_week', day)
+          .order('start_time'),
+
+    t.is_head_teacher
+      ? supabase.from('classes')
+          .select('*')
+          .eq('class_type', 'secular')
+          .order('name')
+      : supabase.from('timetable')
+          .select('classes(id,name)')
+          .eq('teacher_id', t.id),
+
+    supabase.from('exams')
+      .select('*, classes(name)')
+      .eq('is_active', true)
+      .gte('exam_date', new Date().toISOString().split('T')[0])
+      .order('exam_date')
+      .limit(5),
+  ])
+
+  setTodaySessions(sess || [])
+  setUpcomingExams(exms || [])
+
+  // ✅ FIXED PART
+  const classes = t.is_head_teacher
+    ? (cls || [])
+    : [
+        ...new Map<string, any>(
+          (cls || [])
+            .filter((s: any) => s?.classes?.id)
+            .map((s: any) => [s.classes.id, s.classes] as [string, any])
+        ).values(),
+      ]
+
+  setMyClasses(classes)
+  setAllClasses(classes)
+
+  if (classes.length > 0) setEClass((classes[0] as any).id)
+
+  const eq = t.is_head_teacher
+    ? supabase.from('exams')
+        .select('*, classes(name)')
+        .eq('is_active', true)
+        .order('exam_date')
+    : supabase.from('exams')
+        .select('*, classes(name)')
+        .eq('teacher_id', t.id)
+        .eq('is_active', true)
+        .order('exam_date')
+
+  const { data: ae } = await eq
+  setExams(ae || [])
+
+  const stats: any[] = []
+
+  for (const c of classes) {
+    const { data: lc } = await supabase
+      .from('learner_classes')
+      .select('learner_id')
+      .eq('class_id', (c as any).id)
+
+    const ids = lc?.map((l: any) => l.learner_id) || []
+
+    if (!ids.length) {
+      stats.push({ cls: c, pct: 0, n: 0 })
+      continue
     }
-    setAttStats(stats)
+
+    const { data: a } = await supabase
+      .from('attendance')
+      .select('status')
+      .in('learner_id', ids)
+
+    const tot = a?.length || 0
+    const pr =
+      a?.filter((x: any) => x.status === 'present' || x.status === 'late')
+        .length || 0
+
+    stats.push({
+      cls: c,
+      pct: tot > 0 ? Math.round((pr / tot) * 100) : 0,
+      n: ids.length,
+    })
   }
+
+  setAttStats(stats)
+}
+
+
+
 
   async function loadCurriculum(t: any) {
     const { data: tt } = await supabase.from('timetable').select('class_id').eq('teacher_id', t.id)
