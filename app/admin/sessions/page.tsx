@@ -21,7 +21,7 @@ export default function ManageSessions() {
   const [subjects,  setSubjects]  = useState<Subject[]>([])
 
   // View
-  const [viewMode,    setViewMode]    = useState<'grid' | 'list'>('grid')
+  const [viewMode,    setViewMode]    = useState<'grid' | 'list' | 'report'>('grid')
   const [filterClass, setFilterClass] = useState('all')   // class id or 'all'
   const [filterType,  setFilterType]  = useState<'all' | 'islamic' | 'secular'>('all')
 
@@ -213,6 +213,87 @@ export default function ManageSessions() {
     ? { bg: '#F0FDF4', border: '#BBF7D0', text: '#15803D' }
     : { bg: '#EFF6FF', border: '#BFDBFE', text: '#1D4ED8' }
 
+  // ── Report calculations (all sessions, no filter) ─────────────
+  // Session duration in minutes
+  function dur(s: any): number {
+    if (!s.start_time || !s.end_time) return 0
+    const [sh, sm] = s.start_time.slice(0,5).split(':').map(Number)
+    const [eh, em] = s.end_time.slice(0,5).split(':').map(Number)
+    return Math.max(0, (eh * 60 + em) - (sh * 60 + sm))
+  }
+
+  // Detect non-academic sessions by name keywords
+  const NON_ACADEMIC = ['teneffüs', 'teneffus', 'break', 'öğün', 'lunch', 'yemek', 'çay', 'cay', 'tea', 'uyku', 'sleep', 'rest', 'istirahat', 'namaz', 'prayer']
+  function isNonAcademic(name: string) {
+    return NON_ACADEMIC.some(kw => name.toLowerCase().includes(kw))
+  }
+
+  const rptSessions = sessions // use all sessions for report
+
+  // 1. Weekly hours by type (islamic / secular / non-academic)
+  const rptByType = useMemo(() => {
+    const islamicMins  = rptSessions.filter(s => s.classes?.class_type === 'islamic' && !isNonAcademic(s.name)).reduce((a, s) => a + dur(s), 0)
+    const secularMins  = rptSessions.filter(s => s.classes?.class_type !== 'islamic' && !isNonAcademic(s.name)).reduce((a, s) => a + dur(s), 0)
+    const nonAcadMins  = rptSessions.filter(s => isNonAcademic(s.name)).reduce((a, s) => a + dur(s), 0)
+    const totalMins    = rptSessions.reduce((a, s) => a + dur(s), 0)
+    return { islamicMins, secularMins, nonAcadMins, totalMins }
+  }, [rptSessions])
+
+  // 2. Per teacher weekly hours
+  const rptByTeacher = useMemo(() => {
+    const map = new Map<string, { name: string; role: string; mins: number; sessions: number }>()
+    rptSessions.forEach(s => {
+      if (!s.users?.id) return
+      const key = s.users.id
+      if (!map.has(key)) map.set(key, { name: dn(s.users), role: s.users.role, mins: 0, sessions: 0 })
+      const r = map.get(key)!
+      r.mins += dur(s); r.sessions += 1
+    })
+    return [...map.values()].sort((a, b) => b.mins - a.mins)
+  }, [rptSessions])
+
+  // 3. Per class weekly hours
+  const rptByClass = useMemo(() => {
+    const map = new Map<string, { name: string; type: string; mins: number; sessions: number }>()
+    rptSessions.forEach(s => {
+      if (!s.classes?.id) return
+      const key = s.classes.id
+      if (!map.has(key)) map.set(key, { name: s.classes.name, type: s.classes.class_type, mins: 0, sessions: 0 })
+      const r = map.get(key)!
+      r.mins += dur(s); r.sessions += 1
+    })
+    return [...map.values()].sort((a, b) => b.mins - a.mins)
+  }, [rptSessions])
+
+  // 4. Per subject/lesson weekly hours
+  const rptByLesson = useMemo(() => {
+    const map = new Map<string, { name: string; mins: number; sessions: number; nonAcademic: boolean }>()
+    rptSessions.forEach(s => {
+      const key = s.name.toLowerCase().trim()
+      if (!map.has(key)) map.set(key, { name: s.name, mins: 0, sessions: 0, nonAcademic: isNonAcademic(s.name) })
+      const r = map.get(key)!
+      r.mins += dur(s); r.sessions += 1
+    })
+    return [...map.values()].sort((a, b) => b.mins - a.mins)
+  }, [rptSessions])
+
+  // 5. Per day summary
+  const rptByDay = useMemo(() =>
+    DAY_NUMS.map(d => {
+      const daySess = rptSessions.filter(s => s.day_of_week === d)
+      const totalMins = daySess.reduce((a, s) => a + dur(s), 0)
+      const nonAcMins = daySess.filter(s => isNonAcademic(s.name)).reduce((a, s) => a + dur(s), 0)
+      return { day: DAYS[d], n: daySess.length, totalMins, nonAcMins, hasSessions: daySess.length > 0 }
+    }).filter(d => d.hasSessions)
+  , [rptSessions])
+
+  function hm(mins: number) {
+    const h = Math.floor(mins / 60), m = mins % 60
+    if (h === 0) return `${m}m`
+    if (m === 0) return `${h}h`
+    return `${h}h ${m}m`
+  }
+
   return (
     <main style={{ minHeight: '100vh', background: '#F5F4F0', fontFamily: '-apple-system,"DM Sans",sans-serif' }}>
       <style>{`
@@ -336,6 +417,30 @@ export default function ManageSessions() {
 
         /* ── MISMATCH ── */
         .mismatch { font-size:9px; font-weight:700; background:#FEF2F2; color:#DC2626; padding:1px 5px; border-radius:4px; margin-left:5px; }
+
+        /* ── REPORT ── */
+        .rpt-section { margin-bottom:22px; }
+        .rpt-title { font-size:11px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+        .rpt-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:9px; margin-bottom:0; }
+        .rpt-card { background:#fff; border:1px solid #E8E8E6; border-radius:11px; padding:14px 14px 12px; }
+        .rpt-num { font-size:22px; font-weight:500; line-height:1; margin-bottom:3px; }
+        .rpt-lbl { font-size:10px; color:#AAA; text-transform:uppercase; letter-spacing:.04em; }
+        .rpt-sub { font-size:10px; color:#CCC; margin-top:2px; }
+        .rpt-bar-row { background:#fff; border:1px solid #E8E8E6; border-radius:9px; padding:11px 14px; margin-bottom:6px; display:flex; align-items:center; gap:10px; }
+        .rpt-bar-row:last-child { margin-bottom:0; }
+        .rpt-bar-label { font-size:13px; font-weight:500; color:#1A1A1A; min-width:120px; flex-shrink:0; }
+        .rpt-bar-sub { font-size:10px; color:#AAA; margin-top:1px; }
+        .rpt-bar-track { flex:1; height:6px; background:#F0F0EE; border-radius:3px; overflow:hidden; }
+        .rpt-bar-fill { height:100%; border-radius:3px; transition:width .3s; }
+        .rpt-bar-val { font-size:12px; font-weight:600; color:#1A1A1A; min-width:45px; text-align:right; flex-shrink:0; }
+        .rpt-bar-count { font-size:10px; color:#AAA; min-width:36px; text-align:right; flex-shrink:0; }
+        .rpt-day-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+        .rpt-day-card { background:#fff; border:1px solid #E8E8E6; border-radius:10px; padding:12px 10px; text-align:center; }
+        .rpt-day-name { font-size:10px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px; }
+        .rpt-day-total { font-size:17px; font-weight:500; color:#1A1A1A; line-height:1; }
+        .rpt-day-sub { font-size:9px; color:#AAA; margin-top:3px; }
+        .tag-nonac { font-size:9px; font-weight:600; background:#FFF7ED; color:#C2410C; padding:1px 5px; border-radius:4px; margin-left:5px; }
+        @media(max-width:768px) { .rpt-grid { grid-template-columns:1fr 1fr; } .rpt-day-grid { grid-template-columns:1fr 1fr; } }
 
         /* ── PRINT ── */
         @media screen { .print-area { display:none; } }
@@ -574,20 +679,27 @@ export default function ManageSessions() {
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
               List
             </button>
+            <button className={`vtab ${viewMode === 'report' ? 'on' : ''}`} onClick={() => setViewMode('report')}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              Report
+            </button>
           </div>
 
-          <button className={`fpill ${filterType === 'all' ? 'on' : ''}`} onClick={() => { setFilterType('all'); setFilterClass('all') }}>All</button>
-          <button className={`fpill islamic ${filterType === 'islamic' ? 'on' : ''}`} onClick={() => { setFilterType('islamic'); setFilterClass('all') }}>Islamic</button>
-          <button className={`fpill secular ${filterType === 'secular' ? 'on' : ''}`} onClick={() => { setFilterType('secular'); setFilterClass('all') }}>Secular</button>
-
-          <select className="fsel" value={filterClass} onChange={e => setFilterClass(e.target.value)}>
-            <option value="all">All classes</option>
-            {classes
-              .filter(c => filterType === 'all' || (filterType === 'islamic' ? c.class_type === 'islamic' : c.class_type !== 'islamic'))
-              .map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-
-          <span style={{ fontSize: 11, color: '#AAA', marginLeft: 'auto' }}>{filteredSessions.length} sessions</span>
+          {viewMode !== 'report' && <>
+            <button className={`fpill ${filterType === 'all' ? 'on' : ''}`} onClick={() => { setFilterType('all'); setFilterClass('all') }}>All</button>
+            <button className={`fpill islamic ${filterType === 'islamic' ? 'on' : ''}`} onClick={() => { setFilterType('islamic'); setFilterClass('all') }}>Islamic</button>
+            <button className={`fpill secular ${filterType === 'secular' ? 'on' : ''}`} onClick={() => { setFilterType('secular'); setFilterClass('all') }}>Secular</button>
+            <select className="fsel" value={filterClass} onChange={e => setFilterClass(e.target.value)}>
+              <option value="all">All classes</option>
+              {classes
+                .filter(c => filterType === 'all' || (filterType === 'islamic' ? c.class_type === 'islamic' : c.class_type !== 'islamic'))
+                .map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <span style={{ fontSize: 11, color: '#AAA', marginLeft: 'auto' }}>{filteredSessions.length} sessions</span>
+          </>}
+          {viewMode === 'report' && (
+            <span style={{ fontSize: 11, color: '#AAA', marginLeft: 'auto' }}>{sessions.length} sessions total</span>
+          )}
         </div>
 
         {/* ════ GRID VIEW ════ */}
@@ -772,6 +884,155 @@ export default function ManageSessions() {
               </div>
             )}
           </>
+        )}
+
+        {/* ════ REPORT VIEW ════ */}
+        {viewMode === 'report' && (
+          <div>
+            {sessions.length === 0 ? (
+              <div style={{ background: '#fff', border: '1px solid #E8E8E6', borderRadius: 12, padding: 48, textAlign: 'center', color: '#CCC', fontSize: 13 }}>
+                No sessions yet — add some to see reports.
+              </div>
+            ) : (
+              <>
+                {/* ── 1. Overview cards ── */}
+                <div className="rpt-section">
+                  <div className="rpt-title">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Weekly Hours Overview
+                  </div>
+                  <div className="rpt-grid">
+                    <div className="rpt-card">
+                      <div className="rpt-num" style={{ color: '#1A1A1A' }}>{hm(rptByType.totalMins)}</div>
+                      <div className="rpt-lbl">Total Weekly</div>
+                      <div className="rpt-sub">{sessions.length} sessions</div>
+                    </div>
+                    <div className="rpt-card">
+                      <div className="rpt-num" style={{ color: '#15803D' }}>{hm(rptByType.islamicMins)}</div>
+                      <div className="rpt-lbl">Islamic</div>
+                      <div className="rpt-sub">{rptSessions.filter(s => s.classes?.class_type === 'islamic' && !isNonAcademic(s.name)).length} sessions</div>
+                    </div>
+                    <div className="rpt-card">
+                      <div className="rpt-num" style={{ color: '#1D4ED8' }}>{hm(rptByType.secularMins)}</div>
+                      <div className="rpt-lbl">Secular</div>
+                      <div className="rpt-sub">{rptSessions.filter(s => s.classes?.class_type !== 'islamic' && !isNonAcademic(s.name)).length} sessions</div>
+                    </div>
+                    <div className="rpt-card">
+                      <div className="rpt-num" style={{ color: '#C2410C' }}>{hm(rptByType.nonAcadMins)}</div>
+                      <div className="rpt-lbl">Breaks / Other</div>
+                      <div className="rpt-sub">{rptSessions.filter(s => isNonAcademic(s.name)).length} sessions</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── 2. By day ── */}
+                <div className="rpt-section">
+                  <div className="rpt-title">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    Daily Breakdown
+                  </div>
+                  <div className="rpt-day-grid">
+                    {rptByDay.map(d => (
+                      <div key={d.day} className="rpt-day-card">
+                        <div className="rpt-day-name">{d.day.slice(0,3)}</div>
+                        <div className="rpt-day-total">{hm(d.totalMins)}</div>
+                        <div className="rpt-day-sub">{d.n} sessions</div>
+                        {d.nonAcMins > 0 && (
+                          <div style={{ fontSize: 9, color: '#C2410C', marginTop: 3 }}>{hm(d.nonAcMins)} break</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── 3. Per teacher ── */}
+                <div className="rpt-section">
+                  <div className="rpt-title">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    Weekly Hours per Teacher
+                  </div>
+                  {rptByTeacher.length === 0
+                    ? <div style={{ color: '#CCC', fontSize: 12 }}>No teachers assigned</div>
+                    : rptByTeacher.map(t => {
+                        const maxMins = rptByTeacher[0].mins || 1
+                        const isIslamic = t.role === 'islamic_teacher'
+                        const barColor = isIslamic ? '#15803D' : '#1D4ED8'
+                        return (
+                          <div key={t.name} className="rpt-bar-row">
+                            <div style={{ minWidth: 140, flexShrink: 0 }}>
+                              <div className="rpt-bar-label">{t.name}</div>
+                              <div className="rpt-bar-sub">
+                                <span style={{ fontSize: 9, fontWeight: 600, padding: '1px 5px', borderRadius: 4, background: isIslamic ? '#F0FDF4' : '#EFF6FF', color: barColor }}>
+                                  {isIslamic ? 'Islamic' : 'Secular'}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="rpt-bar-track">
+                              <div className="rpt-bar-fill" style={{ width: `${Math.round((t.mins / maxMins) * 100)}%`, background: barColor }} />
+                            </div>
+                            <div className="rpt-bar-val">{hm(t.mins)}</div>
+                            <div className="rpt-bar-count">{t.sessions}×</div>
+                          </div>
+                        )
+                      })}
+                </div>
+
+                {/* ── 4. Per class ── */}
+                <div className="rpt-section">
+                  <div className="rpt-title">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                    Weekly Hours per Class
+                  </div>
+                  {rptByClass.map(c => {
+                    const maxMins = rptByClass[0].mins || 1
+                    const isIslamic = c.type === 'islamic'
+                    const barColor = isIslamic ? '#15803D' : '#1D4ED8'
+                    return (
+                      <div key={c.name} className="rpt-bar-row">
+                        <div style={{ minWidth: 140, flexShrink: 0 }}>
+                          <div className="rpt-bar-label">{c.name}</div>
+                          <div className="rpt-bar-sub" style={{ color: barColor }}>{c.type}</div>
+                        </div>
+                        <div className="rpt-bar-track">
+                          <div className="rpt-bar-fill" style={{ width: `${Math.round((c.mins / maxMins) * 100)}%`, background: barColor }} />
+                        </div>
+                        <div className="rpt-bar-val">{hm(c.mins)}</div>
+                        <div className="rpt-bar-count">{c.sessions}×</div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* ── 5. Per lesson/subject ── */}
+                <div className="rpt-section">
+                  <div className="rpt-title">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                    Weekly Hours per Lesson
+                  </div>
+                  {rptByLesson.map(l => {
+                    const maxMins = rptByLesson[0].mins || 1
+                    const barColor = l.nonAcademic ? '#C2410C' : '#6366F1'
+                    return (
+                      <div key={l.name} className="rpt-bar-row">
+                        <div style={{ minWidth: 140, flexShrink: 0 }}>
+                          <div className="rpt-bar-label">
+                            {l.name}
+                            {l.nonAcademic && <span className="tag-nonac">break</span>}
+                          </div>
+                          <div className="rpt-bar-sub">{l.sessions} session{l.sessions !== 1 ? 's' : ''} / week</div>
+                        </div>
+                        <div className="rpt-bar-track">
+                          <div className="rpt-bar-fill" style={{ width: `${Math.round((l.mins / maxMins) * 100)}%`, background: barColor }} />
+                        </div>
+                        <div className="rpt-bar-val">{hm(l.mins)}</div>
+                        <div className="rpt-bar-count">{l.sessions}×</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
     </main>

@@ -26,26 +26,26 @@ const MAT_COLORS: Record<string, { bg: string; c: string }> = {
   note:  { bg: '#FDF4FF', c: '#7E22CE' },
 }
 const UNDERSTAND = {
-  good:      { bg: '#F0FDF4', c: '#15803D', label: 'İyi anladı', e: '✓' },
-  mixed:     { bg: '#FEFCE8', c: '#A16207', label: 'Karışık',    e: '~' },
-  difficult: { bg: '#FEF2F2', c: '#DC2626', label: 'Zorlandı',   e: '✗' },
+  good:      { bg: '#F0FDF4', c: '#15803D', label: 'Understood well', e: '✓' },
+  mixed:     { bg: '#FEFCE8', c: '#A16207', label: 'Mixed',    e: '~' },
+  difficult: { bg: '#FEF2F2', c: '#DC2626', label: 'Had difficulty',   e: '✗' },
 }
 const INCIDENT_TYPES = [
-  { key: 'disruptive', label: 'Dersi Bölme',   c: '#DC2626', bg: '#FEF2F2' },
-  { key: 'disrespect', label: 'Saygısızlık',   c: '#B45309', bg: '#FFF7ED' },
-  { key: 'bullying',   label: 'Zorbalık',       c: '#7C3AED', bg: '#F5F3FF' },
-  { key: 'phone',      label: 'Telefon/Cihaz',  c: '#0369A1', bg: '#EFF6FF' },
-  { key: 'late',       label: 'Geç Gelme',      c: '#6B7280', bg: '#F9FAFB' },
-  { key: 'homework',   label: 'Ödev Yapmama',   c: '#92400E', bg: '#FFFBEB' },
-  { key: 'other',      label: 'Diğer',          c: '#374151', bg: '#F3F4F6' },
+  { key: 'disruptive', label: 'Disrupting class',   c: '#DC2626', bg: '#FEF2F2' },
+  { key: 'disrespect', label: 'Disrespect',   c: '#B45309', bg: '#FFF7ED' },
+  { key: 'bullying',   label: 'Bullying',       c: '#7C3AED', bg: '#F5F3FF' },
+  { key: 'phone',      label: 'Phone/Device',  c: '#0369A1', bg: '#EFF6FF' },
+  { key: 'late',       label: 'Late arrival',      c: '#6B7280', bg: '#F9FAFB' },
+  { key: 'homework',   label: 'Not doing homework',   c: '#92400E', bg: '#FFFBEB' },
+  { key: 'other',      label: 'Other',          c: '#374151', bg: '#F3F4F6' },
 ]
 const PRAISE_TYPES = [
-  { key: 'outstanding', label: 'Üstün Başarı',   c: '#15803D', bg: '#F0FDF4' },
-  { key: 'helpful',     label: 'Yardımseverlik', c: '#0369A1', bg: '#EFF6FF' },
-  { key: 'improvement', label: 'Gelişim',         c: '#7E22CE', bg: '#FDF4FF' },
-  { key: 'leadership',  label: 'Liderlik',        c: '#B45309', bg: '#FFFBEB' },
-  { key: 'creativity',  label: 'Yaratıcılık',     c: '#0E7490', bg: '#ECFEFF' },
-  { key: 'other',       label: 'Diğer',           c: '#374151', bg: '#F3F4F6' },
+  { key: 'outstanding', label: 'Outstanding achievement',   c: '#15803D', bg: '#F0FDF4' },
+  { key: 'helpful',     label: 'Helpfulness', c: '#0369A1', bg: '#EFF6FF' },
+  { key: 'improvement', label: 'Improvement',         c: '#7E22CE', bg: '#FDF4FF' },
+  { key: 'leadership',  label: 'Leadership',        c: '#B45309', bg: '#FFFBEB' },
+  { key: 'creativity',  label: 'Creativity',     c: '#0E7490', bg: '#ECFEFF' },
+  { key: 'other',       label: 'Other',           c: '#374151', bg: '#F3F4F6' },
 ]
 
 function fmt(d: string) { return d ? new Date(d).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }) : '' }
@@ -299,7 +299,7 @@ async function loadDashboard(t: any) {
   }
 
   async function delRec(table: string, id: string) {
-    if (!confirm('Silmek istiyor musunuz?')) return
+    if (!confirm('Are you sure you want to delete?')) return
     await supabase.from(table).delete().eq('id', id)
     if (table === 'behaviour_incidents') setIncidents(p => p.filter(r => r.id !== id))
     else setPraises(p => p.filter(r => r.id !== id))
@@ -593,21 +593,21 @@ async function loadDashboard(t: any) {
       {fbModal && (
         <div className="mov" onClick={e => { if (e.target === e.currentTarget) setFbModal(null) }}>
           <div className="mo">
-            <div className="mtit">Ders Geri Bildirimi</div>
+            <div className="mtit">Lesson Feedback</div>
             <div className="msub">{fbModal.title}</div>
-            <div className="mlbl">Sınıfın Genel Anlayışı</div>
+            <div className="mlbl">Class's General Understanding</div>
             <div className="upills">
               {(['good', 'mixed', 'difficult'] as const).map(u => (
                 <button key={u} className={`upill ${u === 'difficult' ? 'diff' : u} ${fbU === u ? 'sel' : ''}`} onClick={() => setFbU(u)}>
-                  {u === 'good' ? '✓ İyi' : u === 'mixed' ? '~ Karışık' : '✗ Zor'}
+                  {u === 'good' ? '✓ Good' : u === 'mixed' ? '~ Mixed' : '✗ Difficult'}
                 </button>
               ))}
             </div>
-            <div className="mlbl" style={{ marginBottom: 5 }}>Not</div>
-            <textarea className="mta" placeholder="Bu derste neler öğrenildi..." value={fbNote} onChange={e => setFbNote(e.target.value)} rows={3} />
+            <div className="mlbl" style={{ marginBottom: 5 }}>Note</div>
+            <textarea className="mta" placeholder="What was learned in this lesson..." value={fbNote} onChange={e => setFbNote(e.target.value)} rows={3} />
             <div className="macts">
-              <button className="mcan" onClick={() => setFbModal(null)}>İptal</button>
-              <button className="msave" style={{ background: '#15803D' }} onClick={saveFb} disabled={fbSaving}>{fbSaving ? '...' : 'Tamamlandı Kaydet'}</button>
+              <button className="mcan" onClick={() => setFbModal(null)}>Cancel</button>
+              <button className="msave" style={{ background: '#15803D' }} onClick={saveFb} disabled={fbSaving}>{fbSaving ? '...' : 'Save Completed'}</button>
             </div>
           </div>
         </div>
@@ -617,18 +617,18 @@ async function loadDashboard(t: any) {
       {behModal && (
         <div className="mov" onClick={e => { if (e.target === e.currentTarget) setBehModal(null) }}>
           <div className="mo">
-            <div className="mtit">{behModal === 'incident' ? 'Disiplin Kaydı' : 'Takdir Kaydı'}</div>
-            <div className="msub">{behModal === 'incident' ? 'Olumsuz davranış' : 'Olumlu davranış'}</div>
-            <div className="mlbl">Öğrenci</div>
+            <div className="mtit">{behModal === 'incident' ? 'Discipline Record' : 'Praise Record'}</div>
+            <div className="msub">{behModal === 'incident' ? 'Negative behavior' : 'Positive behavior'}</div>
+            <div className="mlbl">Student</div>
             <select className="msel" value={behLearner} onChange={e => setBehLearner(e.target.value)}>
-              <option value="">— Öğrenci seçin —</option>
+              <option value="">— Select student —</option>
               {behClasses.map(c => (
                 <optgroup key={c.id} label={c.name}>
                   {filtL.filter(l => l.class_id === c.id).map(l => <option key={l.id} value={l.id}>{l.full_name}</option>)}
                 </optgroup>
               ))}
             </select>
-            <div className="mlbl">Kategori</div>
+            <div className="mlbl">Category</div>
             <div className="tgrid">
               {(behModal === 'incident' ? INCIDENT_TYPES : PRAISE_TYPES).map(t => (
                 <button key={t.key} className={`tpill ${behType === t.key ? 'sel' : ''}`}
@@ -636,12 +636,12 @@ async function loadDashboard(t: any) {
                   onClick={() => setBehType(t.key)}>{t.label}</button>
               ))}
             </div>
-            <div className="mlbl" style={{ marginBottom: 5 }}>Açıklama</div>
-            <textarea className="mta" placeholder={behModal === 'incident' ? 'Ne oldu?' : 'Neden takdir edildi?'} value={behNote} onChange={e => setBehNote(e.target.value)} rows={2} />
+            <div className="mlbl" style={{ marginBottom: 5 }}>Description</div>
+            <textarea className="mta" placeholder={behModal === 'incident' ? 'What happened?' : 'Why was praised?'} value={behNote} onChange={e => setBehNote(e.target.value)} rows={2} />
             <div className="macts">
-              <button className="mcan" onClick={() => { setBehModal(null); setBehLearner(''); setBehType(''); setBehNote('') }}>İptal</button>
+              <button className="mcan" onClick={() => { setBehModal(null); setBehLearner(''); setBehType(''); setBehNote('') }}>Cancel</button>
               <button className="msave" style={{ background: behModal === 'incident' ? '#DC2626' : '#15803D' }}
-                onClick={saveBeh} disabled={behSaving || !behLearner || !behType}>{behSaving ? '...' : 'Kaydet'}</button>
+                onClick={saveBeh} disabled={behSaving || !behLearner || !behType}>{behSaving ? '...' : 'Save'}</button>
             </div>
           </div>
         </div>
@@ -1017,7 +1017,7 @@ async function loadDashboard(t: any) {
             )}
             {behTab === 'incidents' && (
               filtInc.length === 0
-                ? <div style={{ background: '#fff', border: '1px solid #EFEFED', borderRadius: 11, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 12, fontWeight: 600, color: '#555' }}>Disiplin kaydı yok</div></div>
+                ? <div style={{ background: '#fff', border: '1px solid #EFEFED', borderRadius: 11, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 12, fontWeight: 600, color: '#555' }}>No discipline records</div></div>
                 : filtInc.map(i => {
                     const cfg = INCIDENT_TYPES.find(t => t.key === i.type) || INCIDENT_TYPES[6]
                     const lrn = allLearners.find(l => l.id === i.learner_id)
@@ -1043,7 +1043,7 @@ async function loadDashboard(t: any) {
             )}
             {behTab === 'praise' && (
               filtPr.length === 0
-                ? <div style={{ background: '#fff', border: '1px solid #EFEFED', borderRadius: 11, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 12, fontWeight: 600, color: '#555' }}>Takdir kaydı yok</div></div>
+                ? <div style={{ background: '#fff', border: '1px solid #EFEFED', borderRadius: 11, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 12, fontWeight: 600, color: '#555' }}>No praise records</div></div>
                 : filtPr.map(i => {
                     const cfg = PRAISE_TYPES.find(t => t.key === i.type) || PRAISE_TYPES[5]
                     const lrn = allLearners.find(l => l.id === i.learner_id)
