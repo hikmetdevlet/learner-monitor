@@ -133,10 +133,10 @@ export default function EtutorPanel() {
   }
 
   async function loadAll(classId: string) {
+    const learnerIds = await loadLearners(classId)
     await Promise.all([
-      loadLearners(classId),
-      loadDashboard(classId),
-      loadAttHistory(classId),
+      loadDashboard(classId, learnerIds),
+      loadAttHistory(classId, learnerIds),
       loadCurrStats(classId),
       loadSessions(classId),
     ])
@@ -150,7 +150,7 @@ export default function EtutorPanel() {
     await loadAll(cls.id)
   }
 
-  async function loadLearners(classId: string) {
+  async function loadLearners(classId: string): Promise<string[]> {
     const { data } = await supabase
       .from('learner_classes')
       .select('learners(id, full_name)')
@@ -161,9 +161,10 @@ export default function EtutorPanel() {
     const init: Record<string, string> = {}
     ls.forEach((l: Learner) => { init[l.id] = 'present' })
     setAttData(init)
+    return ls.map((l: Learner) => l.id)
   }
 
-  async function loadDashboard(classId: string) {
+  async function loadDashboard(classId: string, learnerIds: string[] = []) {
     const t = today()
     const d30 = new Date(); d30.setDate(d30.getDate() - 30)
     const thirtyAgo = toDateStr(d30)
@@ -176,7 +177,9 @@ export default function EtutorPanel() {
       { data: hwList },
     ] = await Promise.all([
       supabase.from('learner_classes').select('*', { count:'exact', head:true }).eq('class_id', classId).eq('enrollment_status', 'active'),
-      supabase.from('attendance').select('learner_id, status').eq('attendance_date', t),
+      learnerIds.length > 0
+        ? supabase.from('attendance').select('learner_id, status').eq('attendance_date', t).in('learner_id', learnerIds)
+        : Promise.resolve({ data: [] as any[], count: null, error: null, status: 200, statusText: 'OK' }),
       supabase.from('curriculum_subjects').select('id').eq('class_id', classId).eq('is_active', true),
       supabase.from('quiz_sessions').select('*', { count:'exact', head:true }).eq('class_id', classId).eq('status', 'sent'),
       supabase.from('homework_assignments').select('id').eq('class_id', classId).gte('due_date', thirtyAgo),
@@ -208,13 +211,16 @@ export default function EtutorPanel() {
     setDashStats({ attPct, currPct, hwPct, pendingQuiz: pendingQ || 0 })
   }
 
-  async function loadAttHistory(classId: string) {
+  async function loadAttHistory(classId: string, learnerIds: string[] = []) {
     const days: string[] = []
     for (let i = 13; i >= 0; i--) {
       const d = new Date(); d.setDate(d.getDate() - i)
       days.push(toDateStr(d))
     }
-    const { data: attRows } = await supabase.from('attendance').select('attendance_date, status').in('attendance_date', days)
+    const attQuery = learnerIds.length > 0
+      ? supabase.from('attendance').select('attendance_date, status').in('attendance_date', days).in('learner_id', learnerIds)
+      : supabase.from('attendance').select('attendance_date, status').in('attendance_date', days)
+    const { data: attRows } = await attQuery
     const { count: total }  = await supabase.from('learner_classes').select('*', { count:'exact', head:true }).eq('class_id', classId).eq('enrollment_status', 'active')
     const map: Record<string, number> = {}
     days.forEach(d => { map[d] = 0 })
@@ -323,10 +329,9 @@ async function loadSessions(classId: string) {
   setSessions((data || []) as any)
 }
   async function openSession(s: QuizSession) {
-    setTab('quizzes')        // ← bu satırı ekle
+    setTab('quizzes')
+    setSelSession(s)
     setQView('questions')
-
-    setSelSession(s); setQView('questions')
     const { data: qs } = await supabase.from('quiz_questions').select('*').in('id', s.question_ids || [])
     setQuestions(qs || [])
     const { data: res } = await supabase.from('quiz_results').select('learner_id, score').eq('quiz_session_id', s.id)
@@ -1073,7 +1078,7 @@ async function loadSessions(classId: string) {
                                 <tr key={i}>
                                   <td>{q.title}</td><td>{q.topic}</td>
                                   <td><span style={{ fontSize:11, padding:'2px 7px', borderRadius:5, background:q.status==='completed'?'#F0FDF4':'#FFF7ED', color:q.status==='completed'?'#15803D':'#C2410C' }}>{q.status==='completed'?'✓ Tamamlandı':'Bekliyor'}</span></td>
-                                  <td style={{ fontWeight:600, color:(q.avgScore??-1)>=75?'#15803D':(q.avgScore??-1)>=50?'#C2410C':'#888' }}></td>
+                                  <td style={{ fontWeight:600, color:(q.avgScore??-1)>=75?'#15803D':(q.avgScore??-1)>=50?'#C2410C':'#888' }}>{q.avgScore !== null ? q.avgScore + '%' : '—'}</td>
                                 </tr>
                               ))}
                             </tbody>
