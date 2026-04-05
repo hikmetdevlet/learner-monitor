@@ -381,13 +381,13 @@ async function loadSessions(classId: string) {
     const totalAtt     = (attRows || []).length
     const attPct       = totalAtt > 0 ? Math.round(presentCount / totalAtt * 100) : 0
 
-    const hwSummary = []
+    const hwSummary: { title: string; teacher: string; due: string; submitted: number; total: number }[] = []
     for (const h of (hwList || [])) {
       const { count: submitted } = await supabase.from('homework_submissions').select('*', { count:'exact', head:true }).eq('assignment_id', h.id).eq('status', 'submitted')
       hwSummary.push({ title: h.title, teacher: (h.users as any)?.full_name || '—', due: h.due_date, submitted: submitted || 0, total: learnerTotal || 0 })
     }
 
-    const quizSummary = []
+    const quizSummary: { title: string; topic: string; status: string; avgScore: number | null }[] = []
     for (const q of (quizList || [])) {
       const { data: qRes } = await supabase.from('quiz_results').select('score, total').eq('quiz_session_id', q.id)
       const avg = (qRes && qRes.length > 0) ? Math.round((qRes as any[]).reduce((a, r) => a + (r.total > 0 ? r.score / r.total * 100 : 0), 0) / qRes.length) : null
