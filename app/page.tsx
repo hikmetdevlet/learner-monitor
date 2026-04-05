@@ -26,6 +26,7 @@ export default function LoginPage() {
     else if (userData?.role === 'teacher') router.push('/teacher')
     else if (userData?.role === 'baskan') router.push('/baskan')
     else if (userData?.role === 'islamic_teacher') router.push('/islamic-teacher')
+    else if (userData?.role === 'etutor') router.push('/etutor')
     else setError('User role not found. Contact admin.')
 
     setLoading(false)
@@ -320,6 +321,7 @@ export default function LoginPage() {
             <span className="role-badge">Teacher</span>
             <span className="role-badge">Holistic Teacher</span>
             <span className="role-badge">Baskan</span>
+            <span className="role-badge">E-Tutor</span>
           </div>
         </div>
       </div>
