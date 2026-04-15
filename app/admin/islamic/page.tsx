@@ -157,6 +157,16 @@ export default function IslamicAdmin() {
     return progressData.find(p => p.learner_id === learnerId && p.topic_id === topicId)
   }
 
+  function handlePrint() {
+    window.print()
+  }
+
+  // Stats for print header
+  const totalPossible = progressTopics.length * progressLearners.length
+  const totalDone = progressData.filter(p => p.completed).length
+  const overallPct = totalPossible > 0 ? Math.round((totalDone / totalPossible) * 100) : 0
+  const printDate = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })
+
   return (
     <main style={{ minHeight: '100vh', background: '#F8F7F4', fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
@@ -191,9 +201,11 @@ export default function IslamicAdmin() {
         .class-chip:hover { border-color:#BBF7D0; background:#F0FDF4; }
         .class-chip.assigned { border-color:#15803D; background:#F0FDF4; color:#15803D; }
         .check-icon { width:14px; height:14px; }
-        .progress-controls { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+        .progress-controls { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
         .ctrl-select { height:36px; border:1px solid #EFEFED; border-radius:8px; padding:0 12px; font-size:13px; font-family:'DM Sans',sans-serif; color:#1A1A1A; background:#fff; outline:none; min-width:200px; }
         .ctrl-select:focus { border-color:#15803D; }
+        .print-btn { display:flex; align-items:center; gap:6px; background:#1A1A1A; color:#fff; border:none; border-radius:9px; padding:8px 16px; font-size:13px; font-weight:500; cursor:pointer; font-family:'DM Sans',sans-serif; margin-left:auto; transition:opacity 0.15s; }
+        .print-btn:hover { opacity:0.85; }
         .overall-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:20px; }
         .stat-mini { background:#fff; border:1px solid #EFEFED; border-radius:12px; padding:14px; text-align:center; }
         .stat-n { font-size:22px; font-weight:500; }
@@ -212,12 +224,198 @@ export default function IslamicAdmin() {
         .tick.done { background:#F0FDF4; color:#15803D; }
         .tick.not { background:#F5F5F3; color:#CCC; }
         .no-topics-msg { padding:16px; background:#FEFCE8; border:1px solid #FDE68A; border-radius:10px; font-size:12px; color:#A16207; margin-bottom:16px; }
+
+        /* ── Print styles ─────────────────────────────── */
+        @media print {
+          * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+          /* Hide everything except the print target */
+          body > * { display: none !important; }
+          #print-area { display: block !important; }
+
+          #print-area {
+            font-family: 'DM Sans', Arial, sans-serif;
+            padding: 0;
+            margin: 0;
+            color: #1A1A1A;
+          }
+
+          .print-header {
+            display: flex !important;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 14px;
+            border-bottom: 2px solid #15803D;
+          }
+
+          .print-school { font-size: 10px; color: #AAA; margin-bottom: 4px; }
+          .print-title { font-size: 22px; font-weight: 600; color: #1A1A1A; margin-bottom: 2px; }
+          .print-sub { font-size: 13px; color: #555; }
+
+          .print-meta-grid {
+            display: grid !important;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+          }
+          .print-stat-box {
+            border: 1px solid #E5E7EB;
+            border-radius: 8px;
+            padding: 10px 14px;
+            text-align: center;
+          }
+          .print-stat-n { font-size: 20px; font-weight: 600; color: #15803D; }
+          .print-stat-l { font-size: 9px; color: #AAA; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+
+          .print-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            margin-top: 8px;
+          }
+          .print-table th {
+            background: #F0FDF4;
+            color: #15803D;
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 7px 8px;
+            border: 1px solid #D1FAE5;
+            text-align: center;
+          }
+          .print-table th.th-learner {
+            text-align: left;
+            min-width: 130px;
+            background: #F9FAFB;
+            color: #6B7280;
+          }
+          .print-table td {
+            padding: 7px 8px;
+            border: 1px solid #F0F0EE;
+            text-align: center;
+            vertical-align: middle;
+          }
+          .print-table td.td-learner {
+            text-align: left;
+            font-weight: 500;
+            color: #1A1A1A;
+          }
+          .print-table tr:nth-child(even) td { background: #FAFAFA; }
+          .print-check-done {
+            display: inline-block;
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            background: #F0FDF4;
+            color: #15803D;
+            font-size: 10px;
+            line-height: 18px;
+            text-align: center;
+            font-weight: 700;
+          }
+          .print-check-not {
+            display: inline-block;
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            background: #F5F5F3;
+            color: #D1D5DB;
+            font-size: 10px;
+            line-height: 18px;
+            text-align: center;
+          }
+          .print-pct-good  { font-weight: 700; color: #15803D; }
+          .print-pct-mid   { font-weight: 700; color: #A16207; }
+          .print-pct-low   { font-weight: 700; color: #DC2626; }
+          .print-footer {
+            margin-top: 24px;
+            padding-top: 10px;
+            border-top: 1px solid #E5E7EB;
+            font-size: 9px;
+            color: #AAA;
+            display: flex !important;
+            justify-content: space-between;
+          }
+        }
+
+        /* Hide print area on screen */
+        #print-area { display: none; }
+        /* ────────────────────────────────────────────── */
         @media (max-width:768px) {
           .wrap { padding:16px; }
           .overall-stats { grid-template-columns:1fr 1fr; }
           .topbar { padding:0 16px; }
         }
       `}</style>
+
+      {/* ── Hidden print area — only visible when printing ── */}
+      <div id="print-area">
+        <div className="print-header">
+          <div>
+            <div className="print-school">Enderun Heights — Islamic Education</div>
+            <div className="print-title">{selectedSubject?.name || 'Progress Report'}</div>
+            <div className="print-sub">{selectedClass?.name} &nbsp;·&nbsp; Per-learner topic tracking</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 10, color: '#AAA' }}>Printed on</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: '#1A1A1A' }}>{printDate}</div>
+            <div style={{ marginTop: 6, fontSize: 11, color: '#15803D', fontWeight: 600 }}>{overallPct}% overall completion</div>
+          </div>
+        </div>
+
+        <div className="print-meta-grid">
+          <div className="print-stat-box">
+            <div className="print-stat-n">{overallPct}%</div>
+            <div className="print-stat-l">Overall completion</div>
+          </div>
+          <div className="print-stat-box">
+            <div className="print-stat-n" style={{ color: '#1D4ED8' }}>{totalDone}/{totalPossible}</div>
+            <div className="print-stat-l">Topics completed</div>
+          </div>
+          <div className="print-stat-box">
+            <div className="print-stat-n" style={{ color: '#7E22CE' }}>{progressLearners.length}</div>
+            <div className="print-stat-l">Learners</div>
+          </div>
+        </div>
+
+        <table className="print-table">
+          <thead>
+            <tr>
+              <th className="th-learner">Learner</th>
+              {progressTopics.map(t => (
+                <th key={t.id}>{t.title}</th>
+              ))}
+              <th>%</th>
+            </tr>
+          </thead>
+          <tbody>
+            {progressLearners.map(l => {
+              const done = progressTopics.filter(t => getP(l.id, t.id)?.completed).length
+              const pct = progressTopics.length > 0 ? Math.round((done / progressTopics.length) * 100) : 0
+              const pctClass = pct >= 70 ? 'print-pct-good' : pct >= 40 ? 'print-pct-mid' : 'print-pct-low'
+              return (
+                <tr key={l.id}>
+                  <td className="td-learner">{l.full_name}</td>
+                  {progressTopics.map(t => (
+                    <td key={t.id}>
+                      {getP(l.id, t.id)?.completed
+                        ? <span className="print-check-done">✓</span>
+                        : <span className="print-check-not">○</span>}
+                    </td>
+                  ))}
+                  <td className={pctClass}>{pct}%</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+
+        <div className="print-footer">
+          <span>Enderun Heights School Management System</span>
+          <span>Generated: {printDate}</span>
+        </div>
+      </div>
+      {/* ── End print area ── */}
 
       <div className="topbar">
         <div className="topbar-left">
@@ -360,6 +558,18 @@ export default function IslamicAdmin() {
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
+
+              {/* Print button — only when data is loaded */}
+              {selectedClass && selectedSubject && progressTopics.length > 0 && progressLearners.length > 0 && (
+                <button className="print-btn" onClick={handlePrint}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="6 9 6 2 18 2 18 9"/>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                    <rect x="6" y="14" width="12" height="8"/>
+                  </svg>
+                  PDF / Print
+                </button>
+              )}
             </div>
 
             {!selectedClass || !selectedSubject ? (
@@ -374,15 +584,12 @@ export default function IslamicAdmin() {
               <>
                 <div className="overall-stats">
                   {(() => {
-                    const totalPossible = progressTopics.length * progressLearners.length
-                    const totalDone = progressData.filter(p => p.completed).length
-                    const pct = totalPossible > 0 ? Math.round((totalDone / totalPossible) * 100) : 0
                     const fullyDone = progressLearners.filter(l =>
                       progressTopics.every(t => progressData.find(p => p.learner_id === l.id && p.topic_id === t.id && p.completed))
                     ).length
                     return (
                       <>
-                        <div className="stat-mini"><div className="stat-n" style={{ color: '#15803D' }}>{pct}%</div><div className="stat-l">Overall completion</div></div>
+                        <div className="stat-mini"><div className="stat-n" style={{ color: '#15803D' }}>{overallPct}%</div><div className="stat-l">Overall completion</div></div>
                         <div className="stat-mini"><div className="stat-n">{totalDone}/{totalPossible}</div><div className="stat-l">Topics completed</div></div>
                         <div className="stat-mini"><div className="stat-n" style={{ color: fullyDone > 0 ? '#15803D' : '#AAA' }}>{fullyDone}</div><div className="stat-l">Fully completed</div></div>
                       </>
@@ -435,7 +642,6 @@ function ClassDashCard({ d, onViewProgress }: any) {
 
   return (
     <div style={{ background: '#fff', border: '1px solid #EFEFED', borderRadius: 14, overflow: 'hidden', marginBottom: 16 }}>
-      {/* Header */}
       <div style={{ padding: '16px 24px', background: '#FAFAF8', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', borderBottom: expanded ? '1px solid #F0F0EE' : 'none' }} onClick={() => setExpanded(e => !e)}>
         <div>
           <div style={{ fontSize: 17, fontWeight: 500, color: '#1A1A1A', fontFamily: "'DM Serif Display',serif" }}>{d.cls.name}</div>
@@ -474,8 +680,6 @@ function ClassDashCard({ d, onViewProgress }: any) {
       {expanded && (
         <div style={{ padding: '20px 24px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20 }}>
-
-            {/* Kolon 1: Subject progress */}
             <div>
               <div style={{ fontSize: 11, fontWeight: 500, color: '#AAA', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
@@ -502,8 +706,6 @@ function ClassDashCard({ d, onViewProgress }: any) {
                   </div>
                 ))
               )}
-
-              {/* Attendance breakdown */}
               <div style={{ fontSize: 11, fontWeight: 500, color: '#AAA', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, marginTop: 20, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                 Attendance breakdown
@@ -521,8 +723,6 @@ function ClassDashCard({ d, onViewProgress }: any) {
                 ))}
               </div>
             </div>
-
-            {/* Kolon 2: Top performers */}
             <div>
               <div style={{ fontSize: 11, fontWeight: 500, color: '#15803D', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#15803D" strokeWidth="2"><polyline points="18 15 12 9 6 15"/></svg>
@@ -542,15 +742,13 @@ function ClassDashCard({ d, onViewProgress }: any) {
                   </div>
                 ))
               )}
-
-              {/* Teachers */}
               <div style={{ fontSize: 11, fontWeight: 500, color: '#AAA', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, marginTop: 20, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 Assigned teachers
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {d.assignedTeachers.length === 0 ? (
-                  <div style={{ fontSize: 12, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', padding: '8px 12px', borderRadius: 8 }}>⚠ No teacher assigned</div>
+                  <div style={{ fontSize: 12, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', padding: '8px 12px', borderRadius: 8 }}>No teacher assigned</div>
                 ) : (
                   d.assignedTeachers.map((a: any) => (
                     <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 9, padding: '8px 12px' }}>
@@ -563,8 +761,6 @@ function ClassDashCard({ d, onViewProgress }: any) {
                 )}
               </div>
             </div>
-
-            {/* Kolon 3: Need attention */}
             <div>
               <div style={{ fontSize: 11, fontWeight: 500, color: '#DC2626', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2"><polyline points="18 9 12 15 6 9"/></svg>
@@ -574,7 +770,7 @@ function ClassDashCard({ d, onViewProgress }: any) {
                 <div style={{ fontSize: 12, color: '#CCC' }}>Not enough data</div>
               ) : (
                 bottom5.map((ls: any, i: number) => (
-                  <div key={ls.learner.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 9, background: i === 0 ? '#FEF2F2' : '#FAFAL8', marginBottom: 5, border: i === 0 ? '1px solid #FECACA' : '1px solid transparent' }}>
+                  <div key={ls.learner.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 9, background: i === 0 ? '#FEF2F2' : '#FAFAF8', marginBottom: 5, border: i === 0 ? '1px solid #FECACA' : '1px solid transparent' }}>
                     <div style={{ width: 22, height: 22, borderRadius: '50%', background: i === 0 ? '#EF4444' : '#FCA5A5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: 'white', flexShrink: 0 }}>!</div>
                     <span style={{ fontSize: 12, fontWeight: 500, color: '#1A1A1A', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ls.learner.full_name}</span>
                     <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
@@ -584,8 +780,6 @@ function ClassDashCard({ d, onViewProgress }: any) {
                   </div>
                 ))
               )}
-
-              {/* All learners attendance if no topic data */}
               {!hasTopicData && (
                 <>
                   <div style={{ fontSize: 11, fontWeight: 500, color: '#AAA', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, marginTop: 16 }}>All learners</div>
@@ -598,7 +792,6 @@ function ClassDashCard({ d, onViewProgress }: any) {
                 </>
               )}
             </div>
-
           </div>
         </div>
       )}
