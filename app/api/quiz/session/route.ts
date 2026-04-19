@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabase } from '../../../lib/supabase-server'
+import { createServerSupabase } from '@/lib/supabase-server'
 
 // GET: quiz session listesi
 export async function GET(req: NextRequest) {

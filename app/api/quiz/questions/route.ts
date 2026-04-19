@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabase } from '../../../lib/supabase-server'
+import { createServerSupabase } from '@/lib/supabase-server'
 
 // GET: topic_id'ye göre soruları getir
 export async function GET(req: NextRequest) {

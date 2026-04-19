@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
-import { createClient } from '../../lib/supabase'
+import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
 type Session  = { id: string; name: string; day_of_week: number; start_time: string; end_time: string; class_id: string; users: any; classes: any }

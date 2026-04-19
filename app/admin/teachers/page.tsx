@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { createClient } from '../../lib/supabase'
+import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
 type User = { id: string; full_name: string; display_name: string; email: string; role: string; is_head_teacher: boolean; is_head_etutor: boolean; auth_id: string }
